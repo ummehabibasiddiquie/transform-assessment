@@ -38,6 +38,10 @@ yarn-error.log*
 /prisma/*.db
 /prisma/*.db-journal
 
+# manager content library (answer keys — do not publish)
+/content/*.xlsx
+/content/*.docx
+
 # vercel
 .vercel
 

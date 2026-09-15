@@ -9,6 +9,7 @@
     "lint": "eslint",
     "setup": "prisma generate && prisma db push && tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
+    "import:library": "tsx prisma/import-library.ts",
     "vercel-build": "prisma generate --schema=prisma/schema.postgres.prisma && prisma db push --schema=prisma/schema.postgres.prisma && tsx prisma/seed.ts && next build",
     "postinstall": "prisma generate"
   },
@@ -23,7 +24,8 @@
     "prisma": "6.16.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tsx": "^4.23.13"
+    "tsx": "^4.23.13",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

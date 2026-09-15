@@ -201,3 +201,83 @@ model AuditEvent {
   createdAt DateTime @default(now())
   actor     User?    @relation(fields: [actorId], references: [id])
 }
+
+model LibraryImport {
+  id             String   @id @default(cuid())
+  libraryVersion String
+  fileName       String
+  importedAt     DateTime @default(now())
+  summaryJson    String
+  importedById   String?
+}
+
+model LibraryRole {
+  id               String @id @default(cuid())
+  sourceId         String @unique
+  name             String
+  level            String
+  experienceBand   String
+  coreCapabilities String
+  profile          String
+  status           String @default("ACTIVE")
+}
+
+model LibraryCompetency {
+  id         String @id @default(cuid())
+  sourceId   String @unique
+  name       String
+  definition String
+  evidence   String
+  levelUse   String
+}
+
+model LibraryAssessmentType {
+  id        String @id @default(cuid())
+  sourceId  String @unique
+  name      String
+  purpose   String
+  use       String
+  aiDefault String
+}
+
+model LibraryContentItem {
+  id              String @id @default(cuid())
+  sourceId        String
+  bank            String
+  family          String @default("")
+  title           String @default("")
+  candidateText   String @default("")
+  evaluatorKey    String @default("")
+  evidenceKey     String @default("")
+  competency      String @default("")
+  difficulty      String @default("")
+  aiPolicy        String @default("")
+  responseType    String @default("")
+  equivalentGroup String @default("")
+  status          String @default("ACTIVE")
+  payloadJson     String @default("{}")
+
+  @@unique([bank, sourceId])
+}
+
+model LibraryBlueprint {
+  id             String @id @default(cuid())
+  sourceId       String @unique
+  roleName       String
+  level          String
+  assessmentType String
+  itemCount      String
+  weight         String
+  mandatory      String
+  aiPolicy       String
+}
+
+model LibraryConfig {
+  id          String @id @default(cuid())
+  kind        String
+  sourceId    String
+  title       String @default("")
+  payloadJson String @default("{}")
+
+  @@unique([kind, sourceId])
+}

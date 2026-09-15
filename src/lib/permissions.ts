@@ -76,6 +76,7 @@ export function roleLabel(role: string) {
 export const STAFF_NAV = [
   { href: "/console", label: "Admin console", permission: "viewDashboard" as const },
   { href: "/console/assessment", label: "Assessment designer", permission: "editAssessment" as const },
+  { href: "/console/library", label: "Content library", permission: "editAssessment" as const },
   { href: "/console/candidates", label: "Candidates", permission: "viewCandidates" as const },
   { href: "/console/candidates/new", label: "Invite candidate", permission: "invite" as const },
   { href: "/console/staff", label: "Staff users", permission: "manageStaff" as const },

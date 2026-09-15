@@ -23,6 +23,8 @@ Invite a candidate from the console and copy the assessment link. Email delivery
 
 Reset demo data with `npm run db:reset`.
 
+Import the manager content library with `npm run import:library` (uses `content/TRANSFORM_Master_Assessment_Content_Library_V2.xlsx`) or upload it from **Content library** in the staff console.
+
 ## Deploy on Vercel
 
 Local development uses **SQLite** (`file:./dev.db`). That file is not on Vercel and cannot be used in production — Vercel’s disk is empty on every deploy, so there are no staff accounts and login fails.

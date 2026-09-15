@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { createStaff, deleteStaff } from "@/lib/actions";
 import { requireStaff } from "@/lib/access";
 import { roleLabel, STAFF_ROLES } from "@/lib/permissions";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export default async function StaffPage() {
   const staff = await requireStaff("manageStaff");
@@ -83,12 +84,12 @@ export default async function StaffPage() {
           </label>
           <label className="block space-y-1.5">
             <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">Password</span>
-            <input
+            <PasswordInput
               name="password"
-              type="password"
               required
               minLength={8}
-              className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2.5 text-[#f3efe6]"
+              autoComplete="new-password"
+              className="rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2.5 text-[#f3efe6]"
             />
           </label>
           <label className="block space-y-1.5">
