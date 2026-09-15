@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f3efe6;
+  --paper-2: #e8dfcf;
+  --ink: #1c2418;
+  --ink-soft: #4a5344;
+  --line: #d4c8b4;
+  --clay: #b44a2a;
+  --clay-dark: #8d351c;
+  --forest: #244336;
+  --ok: #2f6b4f;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-clay: var(--clay);
+  --color-clay-dark: var(--clay-dark);
+  --color-forest: var(--forest);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-outfit);
+  --font-serif: var(--font-fraunces);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-outfit), sans-serif;
+}
+
+.staff-body {
+  background: #121612;
+  color: #e7eadf;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn-primary:hover {
+  color: var(--paper);
+}
+
+.btn-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--clay);
+  color: var(--paper);
+}
+
+.btn-accent:hover {
+  color: var(--paper);
+}
