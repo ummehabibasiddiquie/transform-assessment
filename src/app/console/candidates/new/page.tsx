@@ -1,7 +1,9 @@
 import { inviteCandidate } from "@/lib/actions";
 import { prisma } from "@/lib/db";
+import { requireStaff } from "@/lib/access";
 
 export default async function InvitePage() {
+  await requireStaff("invite");
   const versions = await prisma.assessmentVersion.findMany({
     where: { status: "PUBLISHED" },
     orderBy: { version: "desc" },

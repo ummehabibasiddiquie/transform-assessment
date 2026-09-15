@@ -26,14 +26,16 @@ export default function LoginPage() {
           <div className="w-full max-w-sm">
             <h1 className="font-serif text-3xl">Staff sign in</h1>
             <p className="mt-2 mb-8 text-sm leading-6 text-ink-soft">
-              Demo login is pre-filled. This account can invite candidates,
-              score work, and record a hiring decision.
+              Staff only. Candidates never register here — they receive an invite
+              link. Demo password for all seeded accounts: transform123
             </p>
             <LoginForm />
-            <p className="mt-6 text-xs leading-5 text-ink-soft">
-              Candidates do not use this page. They open the unique assessment
-              link from the console.
-            </p>
+            <ul className="mt-6 space-y-1 text-xs leading-5 text-ink-soft">
+              <li>ivan.p@example.net — Admin console</li>
+              <li>zara.a@example.net — Assessment designer</li>
+              <li>ivan.p@example.net — Evaluator workspace</li>
+              <li>maria.s@example.com — Interview / hiring manager</li>
+            </ul>
           </div>
         </section>
       </div>

@@ -4,13 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { getStaffSession } from "@/lib/auth";
+import { requireStaff } from "@/lib/access";
 import { cloneAssessmentVersion, getOrCreateDraft } from "@/lib/versioning";
 
 async function staffOrLogin() {
-  const staff = await getStaffSession();
-  if (!staff) redirect("/login");
-  return staff;
+  return requireStaff("editAssessment");
 }
 
 function field(formData: FormData, name: string) {

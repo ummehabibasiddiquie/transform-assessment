@@ -6,6 +6,8 @@ import { recommendationLabel } from "@/lib/scoring";
 import { CopyLink } from "@/components/CopyLink";
 import { ResponseView } from "@/components/ResponseView";
 import { recordDecision, saveEvaluation, saveInterview } from "@/lib/actions";
+import { requireStaff } from "@/lib/access";
+import { can } from "@/lib/permissions";
 
 const INTERVIEW_PROBES = [
   "A requirement changes halfway through a task and some previous work may now be wrong. What do you do in the first 10 minutes?",
@@ -21,6 +23,7 @@ export default async function CandidateDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const staff = await requireStaff("viewCandidates");
   const candidate = await prisma.candidate.findUnique({
     where: { id },
     include: {
@@ -82,15 +85,17 @@ export default async function CandidateDetailPage({
             ? ` · paper v${invite.assessmentVersion.version}`
             : ""}
         </p>
-        <Link
-          href={`/console/candidates/${candidate.id}/tasks`}
-          className="mt-4 inline-flex text-sm text-[#d9784a]"
-        >
-          View or customize this person’s tasks
-        </Link>
+        {can(staff.role, "editAssessment") ? (
+          <Link
+            href={`/console/candidates/${candidate.id}/tasks`}
+            className="mt-4 inline-flex text-sm text-[#d9784a]"
+          >
+            View or customize this person’s tasks
+          </Link>
+        ) : null}
       </div>
 
-      {inviteUrl ? (
+      {inviteUrl && can(staff.role, "invite") ? (
         <section className="rounded-lg border border-[#2a332a] p-5">
           <h2 className="font-serif text-xl text-[#f3efe6]">Assessment link</h2>
           <p className="mt-2 mb-4 text-sm text-[#9aa392]">
@@ -154,7 +159,7 @@ export default async function CandidateDetailPage({
         <p className="text-sm text-[#9aa392]">The candidate has not started yet.</p>
       )}
 
-      {attempt && attempt.status === "SUBMITTED" ? (
+      {attempt && attempt.status === "SUBMITTED" && can(staff.role, "score") ? (
         <section className="rounded-lg border border-[#2a332a] p-5">
           <h2 className="font-serif text-2xl text-[#f3efe6]">Score competencies</h2>
           <p className="mt-2 mb-6 text-sm text-[#9aa392]">
@@ -209,86 +214,93 @@ export default async function CandidateDetailPage({
         </section>
       ) : null}
 
-      {attempt?.overallScore != null ? (
+      {attempt?.overallScore != null &&
+      (can(staff.role, "interview") || can(staff.role, "decide")) ? (
         <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-lg border border-[#2a332a] p-5">
-            <h2 className="font-serif text-2xl text-[#f3efe6]">Interview notes</h2>
-            <p className="mt-2 mb-4 text-sm text-[#9aa392]">
-              Do not repeat the assessment. Use these to check remaining uncertainty.
-            </p>
-            <ul className="mb-4 list-disc space-y-2 pl-5 text-sm text-[#c8cdb8]">
-              {focusProbes.map((probe) => (
-                <li key={probe}>{probe}</li>
-              ))}
-            </ul>
-            <form action={saveInterview} className="space-y-3">
-              <input type="hidden" name="attemptId" value={attempt.id} />
-              <input type="hidden" name="candidateId" value={candidate.id} />
-              <textarea
-                name="probesUsed"
-                defaultValue={attempt.interview?.probesUsed}
-                placeholder="Which probes you actually used"
-                rows={2}
-                className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm"
-              />
-              <textarea
-                name="notes"
-                defaultValue={attempt.interview?.notes}
-                placeholder="Interview notes"
-                rows={5}
-                className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm"
-              />
-              <button className="rounded-md border border-[#d9784a] px-4 py-2 text-sm text-[#d9784a]">
-                Save interview
-              </button>
-            </form>
-          </div>
-          <div className="rounded-lg border border-[#2a332a] p-5">
-            <h2 className="font-serif text-2xl text-[#f3efe6]">Final decision</h2>
-            <p className="mt-2 mb-4 text-sm text-[#9aa392]">
-              The score is a view, not the decision. Record the outcome and why.
-            </p>
-            {candidate.decisions[0] ? (
-              <div className="text-sm text-[#c8cdb8]">
-                <p className="text-[#f3efe6]">
-                  {recommendationLabel(candidate.decisions[0].outcome)}
-                </p>
-                <p className="mt-2 whitespace-pre-wrap">{candidate.decisions[0].rationale}</p>
-                <p className="mt-3 text-xs text-[#9aa392]">
-                  By {candidate.decisions[0].decidedBy.name}
-                </p>
-              </div>
-            ) : (
-              <form action={recordDecision} className="space-y-3">
+          {can(staff.role, "interview") ? (
+            <div className="rounded-lg border border-[#2a332a] p-5">
+              <h2 className="font-serif text-2xl text-[#f3efe6]">Interview notes</h2>
+              <p className="mt-2 mb-4 text-sm text-[#9aa392]">
+                Do not repeat the assessment. Use these to check remaining uncertainty.
+              </p>
+              <ul className="mb-4 list-disc space-y-2 pl-5 text-sm text-[#c8cdb8]">
+                {focusProbes.map((probe) => (
+                  <li key={probe}>{probe}</li>
+                ))}
+              </ul>
+              <form action={saveInterview} className="space-y-3">
                 <input type="hidden" name="attemptId" value={attempt.id} />
                 <input type="hidden" name="candidateId" value={candidate.id} />
-                <select
-                  name="outcome"
-                  required
-                  className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm"
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    Choose outcome
-                  </option>
-                  <option value="STRONG_HIRE">Strong Hire</option>
-                  <option value="HIRE">Hire</option>
-                  <option value="HOLD">Hold / Further Check</option>
-                  <option value="NO_HIRE">No Hire</option>
-                </select>
                 <textarea
-                  name="rationale"
-                  required
-                  placeholder="Why this decision, including remaining risks"
+                  name="probesUsed"
+                  defaultValue={attempt.interview?.probesUsed}
+                  placeholder="Which probes you actually used"
+                  rows={2}
+                  className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm"
+                />
+                <textarea
+                  name="notes"
+                  defaultValue={attempt.interview?.notes}
+                  placeholder="Interview notes"
                   rows={5}
                   className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm"
                 />
-                <button className="rounded-md bg-[#f3efe6] px-4 py-2.5 text-sm font-medium text-[#121612]">
-                  Record decision
+                <button className="rounded-md border border-[#d9784a] px-4 py-2 text-sm text-[#d9784a]">
+                  Save interview
                 </button>
               </form>
-            )}
-          </div>
+            </div>
+          ) : null}
+          {can(staff.role, "decide") || candidate.decisions[0] ? (
+            <div className="rounded-lg border border-[#2a332a] p-5">
+              <h2 className="font-serif text-2xl text-[#f3efe6]">Final decision</h2>
+              <p className="mt-2 mb-4 text-sm text-[#9aa392]">
+                The score is a view, not the decision. Record the outcome and why.
+              </p>
+              {candidate.decisions[0] ? (
+                <div className="text-sm text-[#c8cdb8]">
+                  <p className="text-[#f3efe6]">
+                    {recommendationLabel(candidate.decisions[0].outcome)}
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap">{candidate.decisions[0].rationale}</p>
+                  <p className="mt-3 text-xs text-[#9aa392]">
+                    By {candidate.decisions[0].decidedBy.name}
+                  </p>
+                </div>
+              ) : can(staff.role, "decide") ? (
+                <form action={recordDecision} className="space-y-3">
+                  <input type="hidden" name="attemptId" value={attempt.id} />
+                  <input type="hidden" name="candidateId" value={candidate.id} />
+                  <select
+                    name="outcome"
+                    required
+                    className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      Choose outcome
+                    </option>
+                    <option value="STRONG_HIRE">Strong Hire</option>
+                    <option value="HIRE">Hire</option>
+                    <option value="HOLD">Hold / Further Check</option>
+                    <option value="NO_HIRE">No Hire</option>
+                  </select>
+                  <textarea
+                    name="rationale"
+                    required
+                    placeholder="Why this decision, including remaining risks"
+                    rows={5}
+                    className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm"
+                  />
+                  <button className="rounded-md bg-[#f3efe6] px-4 py-2.5 text-sm font-medium text-[#121612]">
+                    Record decision
+                  </button>
+                </form>
+              ) : (
+                <p className="text-sm text-[#9aa392]">Pending hiring manager decision.</p>
+              )}
+            </div>
+          ) : null}
         </section>
       ) : null}
     </div>

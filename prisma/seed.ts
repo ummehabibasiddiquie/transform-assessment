@@ -26,32 +26,45 @@ const LEARN_CLASSIFY = [
 ];
 
 async function main() {
-  await prisma.auditEvent.deleteMany();
-  await prisma.decision.deleteMany();
-  await prisma.interview.deleteMany();
-  await prisma.humanEvaluation.deleteMany();
-  await prisma.response.deleteMany();
-  await prisma.attempt.deleteMany();
-  await prisma.invite.deleteMany();
-  await prisma.task.deleteMany();
-  await prisma.assessmentVersion.deleteMany();
-  await prisma.assessment.deleteMany();
-  await prisma.competency.deleteMany();
-  await prisma.roleVersion.deleteMany();
-  await prisma.role.deleteMany();
-  await prisma.candidate.deleteMany();
-  await prisma.user.deleteMany();
+  if (process.env.SEED_RESET === "true") {
+    await prisma.auditEvent.deleteMany();
+    await prisma.decision.deleteMany();
+    await prisma.interview.deleteMany();
+    await prisma.humanEvaluation.deleteMany();
+    await prisma.response.deleteMany();
+    await prisma.attempt.deleteMany();
+    await prisma.invite.deleteMany();
+    await prisma.task.deleteMany();
+    await prisma.assessmentVersion.deleteMany();
+    await prisma.assessment.deleteMany();
+    await prisma.competency.deleteMany();
+    await prisma.roleVersion.deleteMany();
+    await prisma.role.deleteMany();
+    await prisma.candidate.deleteMany();
+    await prisma.user.deleteMany();
+  }
 
   const passwordHash = await bcrypt.hash("transform123", 10);
+  const staff = [
+    { name: "Aisha Rahman", email: "ivan.p@example.net", role: "ADMIN" },
+    { name: "Neel Joshi", email: "zara.a@example.net", role: "DESIGNER" },
+    { name: "Meera Kapoor", email: "ivan.p@example.net", role: "EVALUATOR" },
+    { name: "Arjun Desai", email: "maria.s@example.com", role: "HIRING_MANAGER" },
+  ];
 
-  await prisma.user.create({
-    data: {
-      name: "Aisha Rahman",
-      email: "ivan.p@example.net",
-      passwordHash,
-      role: "ADMIN",
-    },
-  });
+  for (const person of staff) {
+    await prisma.user.upsert({
+      where: { email: person.email },
+      update: { name: person.name, role: person.role, active: true },
+      create: { ...person, passwordHash },
+    });
+  }
+
+  if ((await prisma.assessment.count()) > 0) {
+    console.log("Staff accounts ready. Assessment already exists; skipping content seed.");
+    console.log("Password for new staff accounts: transform123");
+    return;
+  }
 
   const role = await prisma.role.create({
     data: {
@@ -262,8 +275,11 @@ async function main() {
     ],
   });
 
-  console.log("Seed complete.");
-  console.log("Staff login: ivan.p@example.net / transform123");
+  console.log("Seed complete. Password for all staff: transform123");
+  console.log("Admin:           ivan.p@example.net");
+  console.log("Designer:        zara.a@example.net");
+  console.log("Evaluator:       ivan.p@example.net");
+  console.log("Hiring manager:  maria.s@example.com");
 }
 
 main()

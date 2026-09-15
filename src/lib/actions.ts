@@ -7,18 +7,27 @@ import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import {
   clearStaffSession,
-  getStaffSession,
   setCandidateSession,
   setStaffSession,
 } from "@/lib/auth";
 import { recommendationFromScore, weightedScore } from "@/lib/scoring";
+import { requireStaff } from "@/lib/access";
+import { homePath, STAFF_ROLES, type StaffRole } from "@/lib/permissions";
 
 export async function loginStaff(formData: FormData) {
   const email = String(formData.get("email") ?? "")
     .trim()
     .toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user;
+  try {
+    user = await prisma.user.findUnique({ where: { email } });
+  } catch {
+    return {
+      error:
+        "The live database is not connected. On Vercel, set DATABASE_URL to a Postgres URL and AUTH_SECRET, then redeploy.",
+    };
+  }
   if (!user || !user.active) {
     return { error: "Those details do not match a staff account." };
   }
@@ -26,20 +35,31 @@ export async function loginStaff(formData: FormData) {
   if (!ok) {
     return { error: "Those details do not match a staff account." };
   }
-  await setStaffSession({
-    type: "staff",
-    userId: user.id,
-    role: user.role,
-    name: user.name,
-    email: user.email,
-  });
+  try {
+    await setStaffSession({
+      type: "staff",
+      userId: user.id,
+      role: user.role,
+      name: user.name,
+      email: user.email,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("AUTH_SECRET")) {
+      return {
+        error:
+          "AUTH_SECRET is missing on Vercel. Add it in Environment Variables and redeploy.",
+      };
+    }
+    throw error;
+  }
   await audit({
     actorId: user.id,
     action: "LOGIN",
     entity: "User",
     entityId: user.id,
   });
-  redirect("/console");
+  redirect(homePath(user.role));
 }
 
 export async function logoutStaff() {
@@ -48,8 +68,7 @@ export async function logoutStaff() {
 }
 
 export async function inviteCandidate(formData: FormData) {
-  const staff = await getStaffSession();
-  if (!staff) redirect("/login");
+  const staff = await requireStaff("invite");
 
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -166,8 +185,7 @@ export async function submitAttempt(token: string) {
 }
 
 export async function saveEvaluation(formData: FormData) {
-  const staff = await getStaffSession();
-  if (!staff) redirect("/login");
+  const staff = await requireStaff("score");
 
   const attemptId = String(formData.get("attemptId") ?? "");
   const candidateId = String(formData.get("candidateId") ?? "");
@@ -239,8 +257,7 @@ export async function saveEvaluation(formData: FormData) {
 }
 
 export async function saveInterview(formData: FormData) {
-  const staff = await getStaffSession();
-  if (!staff) redirect("/login");
+  const staff = await requireStaff("interview");
   const attemptId = String(formData.get("attemptId") ?? "");
   const candidateId = String(formData.get("candidateId") ?? "");
   const notes = String(formData.get("notes") ?? "");
@@ -265,8 +282,7 @@ export async function saveInterview(formData: FormData) {
 }
 
 export async function recordDecision(formData: FormData) {
-  const staff = await getStaffSession();
-  if (!staff) redirect("/login");
+  const staff = await requireStaff("decide");
   const attemptId = String(formData.get("attemptId") ?? "");
   const candidateId = String(formData.get("candidateId") ?? "");
   const outcome = String(formData.get("outcome") ?? "");
@@ -295,4 +311,146 @@ export async function recordDecision(formData: FormData) {
     metadata: { outcome },
   });
   redirect(`/console/candidates/${candidateId}`);
+}
+
+export async function createStaff(formData: FormData) {
+  const staff = await requireStaff("manageStaff");
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const role = String(formData.get("role") ?? "") as StaffRole;
+  if (!name || !email || password.length < 8) {
+    throw new Error("Name, email and a password of at least 8 characters are required.");
+  }
+  if (!STAFF_ROLES.includes(role)) {
+    throw new Error("Choose a staff role.");
+  }
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    throw new Error("That email already has a staff account.");
+  }
+  await prisma.user.create({
+    data: {
+      name,
+      email,
+      passwordHash: await bcrypt.hash(password, 10),
+      role,
+    },
+  });
+  await audit({
+    actorId: staff.userId,
+    action: "CREATE_STAFF",
+    entity: "User",
+    entityId: email,
+    metadata: { role },
+  });
+  redirect("/console/staff");
+}
+
+export async function updateStaff(formData: FormData) {
+  const staff = await requireStaff("manageStaff");
+  const userId = String(formData.get("userId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const role = String(formData.get("role") ?? "") as StaffRole;
+  const active = formData.get("active") === "on";
+  if (!userId || !name || !email) {
+    throw new Error("Name and email are required.");
+  }
+  if (!STAFF_ROLES.includes(role)) {
+    throw new Error("Choose a staff role.");
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("Staff user not found.");
+
+  const taken = await prisma.user.findUnique({ where: { email } });
+  if (taken && taken.id !== userId) {
+    throw new Error("That email already has a staff account.");
+  }
+
+  if (userId === staff.userId && !active) {
+    throw new Error("You cannot deactivate your own account.");
+  }
+  if (user.role === "ADMIN" && (role !== "ADMIN" || !active)) {
+    const otherAdmins = await prisma.user.count({
+      where: { role: "ADMIN", active: true, id: { not: userId } },
+    });
+    if (otherAdmins === 0) {
+      throw new Error("Keep at least one active admin.");
+    }
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      name,
+      email,
+      role,
+      active,
+      ...(password.length >= 8
+        ? { passwordHash: await bcrypt.hash(password, 10) }
+        : {}),
+    },
+  });
+  await audit({
+    actorId: staff.userId,
+    action: "UPDATE_STAFF",
+    entity: "User",
+    entityId: userId,
+    metadata: { role, active },
+  });
+  redirect("/console/staff");
+}
+
+export async function deleteStaff(formData: FormData) {
+  const staff = await requireStaff("manageStaff");
+  const userId = String(formData.get("userId") ?? "");
+  if (!userId) throw new Error("Staff user not found.");
+  if (userId === staff.userId) {
+    throw new Error("You cannot delete your own account.");
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      _count: { select: { evaluations: true, interviews: true, decisions: true } },
+    },
+  });
+  if (!user) throw new Error("Staff user not found.");
+  if (user.role === "ADMIN") {
+    const otherAdmins = await prisma.user.count({
+      where: { role: "ADMIN", active: true, id: { not: userId } },
+    });
+    if (otherAdmins === 0) {
+      throw new Error("Keep at least one active admin.");
+    }
+  }
+
+  const hasHistory =
+    user._count.evaluations + user._count.interviews + user._count.decisions > 0;
+  if (hasHistory) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { active: false },
+    });
+    await audit({
+      actorId: staff.userId,
+      action: "DEACTIVATE_STAFF",
+      entity: "User",
+      entityId: userId,
+    });
+  } else {
+    await prisma.auditEvent.updateMany({
+      where: { actorId: userId },
+      data: { actorId: null },
+    });
+    await prisma.user.delete({ where: { id: userId } });
+    await audit({
+      actorId: staff.userId,
+      action: "DELETE_STAFF",
+      entity: "User",
+      entityId: userId,
+    });
+  }
+  redirect("/console/staff");
 }

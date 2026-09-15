@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { CandidateTable } from "@/components/CandidateTable";
+import { requireStaff } from "@/lib/access";
+import { can } from "@/lib/permissions";
 
 export default async function CandidatesPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
+  const staff = await requireStaff("viewCandidates");
   const { q = "", status = "" } = await searchParams;
   const candidates = await prisma.candidate.findMany({
     where: {
@@ -38,12 +41,14 @@ export default async function CandidatesPage({
             paper, scores, and decision.
           </p>
         </div>
-        <Link
-          href="/console/candidates/new"
-          className="rounded-md bg-[#d9784a] px-4 py-2 text-sm font-medium text-[#121612]"
-        >
-          Invite candidate
-        </Link>
+        {can(staff.role, "invite") ? (
+          <Link
+            href="/console/candidates/new"
+            className="rounded-md bg-[#d9784a] px-4 py-2 text-sm font-medium text-[#121612]"
+          >
+            Invite candidate
+          </Link>
+        ) : null}
       </div>
 
       <form className="flex flex-wrap gap-3" action="/console/candidates">

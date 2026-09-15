@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { requireStaff } from "@/lib/access";
 import { prisma } from "@/lib/db";
 import { CandidateTable } from "@/components/CandidateTable";
 
 export default async function ConsoleHome() {
+  await requireStaff("viewDashboard");
   const [roles, publishedVersions, candidates] = await Promise.all([
     prisma.role.count({ where: { status: "ACTIVE" } }),
     prisma.assessmentVersion.count({ where: { status: "PUBLISHED" } }),

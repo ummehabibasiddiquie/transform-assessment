@@ -2,12 +2,14 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { createTask } from "@/lib/content-actions";
 import { TaskEditorForm } from "@/components/TaskEditorForm";
+import { requireStaff } from "@/lib/access";
 
 export default async function NewTaskPage({
   searchParams,
 }: {
   searchParams: Promise<{ versionId?: string; candidateId?: string }>;
 }) {
+  await requireStaff("editAssessment");
   const { versionId, candidateId } = await searchParams;
   if (!versionId) notFound();
   const version = await prisma.assessmentVersion.findUnique({

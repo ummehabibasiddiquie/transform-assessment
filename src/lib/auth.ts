@@ -55,24 +55,24 @@ export async function getCandidateSession() {
   return session?.type === "candidate" ? session : null;
 }
 
+function cookieOptions(maxAge: number) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge,
+    secure: process.env.NODE_ENV === "production",
+  };
+}
+
 export async function setStaffSession(session: StaffSession) {
   const jar = await cookies();
-  jar.set(STAFF_COOKIE, await sign(session), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  jar.set(STAFF_COOKIE, await sign(session), cookieOptions(60 * 60 * 24 * 7));
 }
 
 export async function setCandidateSession(session: CandidateSession) {
   const jar = await cookies();
-  jar.set(CANDIDATE_COOKIE, await sign(session), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 2,
-  });
+  jar.set(CANDIDATE_COOKIE, await sign(session), cookieOptions(60 * 60 * 24 * 2));
 }
 
 export async function clearStaffSession() {

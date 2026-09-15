@@ -2,12 +2,14 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { saveTask } from "@/lib/content-actions";
 import { TaskEditorForm } from "@/components/TaskEditorForm";
+import { requireStaff } from "@/lib/access";
 
 export default async function EditTaskPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireStaff("editAssessment");
   const { id } = await params;
   const task = await prisma.task.findUnique({
     where: { id },

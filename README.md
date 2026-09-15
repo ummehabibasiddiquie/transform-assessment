@@ -12,7 +12,12 @@ npm run dev
 
 Open http://localhost:3000
 
-- Staff: `ivan.p@example.net` / `transform123`
+- Admin: `ivan.p@example.net` / `transform123`
+- Designer: `zara.a@example.net` / `transform123`
+- Evaluator: `ivan.p@example.net` / `transform123`
+- Hiring manager: `maria.s@example.com` / `transform123`
+
+Candidates are not registered. Invite them from **Invite candidate**. Add more staff from **Staff users** (admin only).
 
 Invite a candidate from the console and copy the assessment link. Email delivery is not required for this version.
 
@@ -20,11 +25,14 @@ Reset demo data with `npm run db:reset`.
 
 ## Deploy on Vercel
 
-This app is a Next.js project, so Vercel can host it. Do not use the local SQLite file in production — Vercel’s filesystem does not keep that data. Use a hosted Postgres database (Neon, Vercel Postgres, or Supabase) and set:
+Local development uses **SQLite** (`file:./dev.db`). That file is not on Vercel and cannot be used in production — Vercel’s disk is empty on every deploy, so there are no staff accounts and login fails.
 
-- `DATABASE_URL` — Postgres connection string
-- `AUTH_SECRET` — a long random string (for example from `openssl rand -base64 32`)
+Use hosted **Postgres** (Neon is simplest):
 
-After the first deploy, run Prisma against that database (`prisma db push` and `prisma db seed`) so roles and the Operations Executive paper exist.
+1. Create a free database at [neon.tech](https://neon.tech) and copy the connection string (`postgresql://...sslmode=require`).
+2. In Vercel → Project → Settings → Environment Variables, add for **Production**:
+   - `DATABASE_URL` — the Neon / Postgres URL
+   - `AUTH_SECRET` — a long random string (PowerShell: `[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])`)
+3. Redeploy. The Vercel build creates the tables and the demo staff accounts.
 
-Change `prisma/schema.prisma` `provider` from `sqlite` to `postgresql` before pointing `DATABASE_URL` at Postgres.
+Login: `ivan.p@example.net` / `transform123`

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { requireStaff } from "@/lib/access";
 import {
   deleteTask,
   publishDraft,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/content-actions";
 
 export default async function AssessmentContentPage() {
+  await requireStaff("editAssessment");
   const assessment = await prisma.assessment.findFirst({
     include: {
       roleVersion: {

@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { customizeCandidatePaper, deleteTask } from "@/lib/content-actions";
+import { requireStaff } from "@/lib/access";
 
 export default async function CandidateTasksPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireStaff("editAssessment");
   const { id } = await params;
   const candidate = await prisma.candidate.findUnique({
     where: { id },

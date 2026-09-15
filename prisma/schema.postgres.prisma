@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  evaluations HumanEvaluation[]
+  interviews  Interview[]
+  decisions   Decision[]
+  audits      AuditEvent[]
+}
+
+model Candidate {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  status    String   @default("INVITED")
+  createdAt DateTime @default(now())
+
+  invites   Invite[]
+  attempts  Attempt[]
+  decisions Decision[]
+}
+
+model Role {
+  id       String @id @default(cuid())
+  name     String
+  purpose  String
+  status   String @default("ACTIVE")
+  versions RoleVersion[]
+}
+
+model RoleVersion {
+  id          String    @id @default(cuid())
+  roleId      String
+  version     Int
+  status      String    @default("PUBLISHED")
+  publishedAt DateTime?
+  role        Role      @relation(fields: [roleId], references: [id])
+  competencies Competency[]
+  assessments  Assessment[]
+}
+
+model Competency {
+  id            String @id @default(cuid())
+  roleVersionId String
+  name          String
+  definition    String
+  weight        Float
+  sortOrder     Int
+  exceptional   String
+  acceptable    String
+  poor          String
+  roleVersion   RoleVersion @relation(fields: [roleVersionId], references: [id])
+  evaluations   HumanEvaluation[]
+}
+
+model Assessment {
+  id            String @id @default(cuid())
+  roleVersionId String
+  name          String
+  durationMin   Int
+  status        String @default("PUBLISHED")
+  roleVersion   RoleVersion @relation(fields: [roleVersionId], references: [id])
+  versions      AssessmentVersion[]
+}
+
+model AssessmentVersion {
+  id           String    @id @default(cuid())
+  assessmentId String
+  version      Int
+  status       String    @default("PUBLISHED")
+  publishedAt  DateTime?
+  instructions String
+  aiPolicy     String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  tasks        Task[]
+  attempts     Attempt[]
+  invites      Invite[]
+}
+
+model Task {
+  id                  String @id @default(cuid())
+  assessmentVersionId String
+  sequence            Int
+  family              String
+  title               String
+  instructions        String
+  referenceMaterial   String @default("")
+  responseType        String
+  timeLimitMin        Int?
+  aiAllowed           Boolean @default(true)
+  evidenceNotes       String  @default("")
+  assessmentVersion   AssessmentVersion @relation(fields: [assessmentVersionId], references: [id])
+  responses           Response[]
+}
+
+model Invite {
+  id                  String   @id @default(cuid())
+  candidateId         String
+  assessmentVersionId String
+  token               String   @unique
+  createdAt           DateTime @default(now())
+  candidate           Candidate @relation(fields: [candidateId], references: [id])
+  assessmentVersion   AssessmentVersion @relation(fields: [assessmentVersionId], references: [id])
+  attempts            Attempt[]
+}
+
+model Attempt {
+  id                  String    @id @default(cuid())
+  candidateId         String
+  assessmentVersionId String
+  inviteId            String?
+  status              String    @default("IN_PROGRESS")
+  currentTaskSequence Int       @default(1)
+  startedAt           DateTime  @default(now())
+  submittedAt         DateTime?
+  overallScore        Float?
+  recommendation      String?
+  candidate           Candidate @relation(fields: [candidateId], references: [id])
+  assessmentVersion   AssessmentVersion @relation(fields: [assessmentVersionId], references: [id])
+  invite              Invite?   @relation(fields: [inviteId], references: [id])
+  responses           Response[]
+  evaluations         HumanEvaluation[]
+  interview           Interview?
+  decisions           Decision[]
+}
+
+model Response {
+  id              String   @id @default(cuid())
+  attemptId       String
+  taskId          String
+  contentJson     String   @default("{}")
+  resourceLogJson String   @default("{}")
+  savedAt         DateTime @default(now())
+  attempt         Attempt  @relation(fields: [attemptId], references: [id])
+  task            Task     @relation(fields: [taskId], references: [id])
+
+  @@unique([attemptId, taskId])
+}
+
+model HumanEvaluation {
+  id           String   @id @default(cuid())
+  attemptId    String
+  competencyId String
+  score        Float
+  rationale    String   @default("")
+  evaluatorId  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  attempt      Attempt    @relation(fields: [attemptId], references: [id])
+  competency   Competency @relation(fields: [competencyId], references: [id])
+  evaluator    User       @relation(fields: [evaluatorId], references: [id])
+
+  @@unique([attemptId, competencyId])
+}
+
+model Interview {
+  id             String   @id @default(cuid())
+  attemptId      String   @unique
+  notes          String   @default("")
+  probesUsed     String   @default("")
+  interviewerId  String
+  updatedAt      DateTime @updatedAt
+  attempt        Attempt  @relation(fields: [attemptId], references: [id])
+  interviewer    User     @relation(fields: [interviewerId], references: [id])
+}
+
+model Decision {
+  id          String   @id @default(cuid())
+  candidateId String
+  attemptId   String
+  outcome     String
+  rationale   String
+  decidedById String
+  createdAt   DateTime @default(now())
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  attempt     Attempt   @relation(fields: [attemptId], references: [id])
+  decidedBy   User      @relation(fields: [decidedById], references: [id])
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+  actor     User?    @relation(fields: [actorId], references: [id])
+}
