@@ -11,9 +11,17 @@ export default async function CandidatesPage({
 }) {
   const staff = await requireStaff("viewCandidates");
   const { q = "", status = "" } = await searchParams;
+  const evaluator = staff.role === "EVALUATOR";
+  const submittedStatuses = ["COMPLETED", "REVIEWED", "DECIDED"];
+  const statusFilter =
+    evaluator && !submittedStatuses.includes(status) ? "" : status;
   const candidates = await prisma.candidate.findMany({
     where: {
-      ...(status ? { status } : {}),
+      ...(evaluator
+        ? { status: statusFilter || { in: submittedStatuses } }
+        : statusFilter
+          ? { status: statusFilter }
+          : {}),
       ...(q
         ? {
             OR: [
@@ -37,8 +45,9 @@ export default async function CandidatesPage({
           <p className="text-xs uppercase tracking-[0.2em] text-[#9aa392]">People</p>
           <h1 className="mt-2 font-serif text-4xl text-[#f3efe6]">Candidates</h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-[#c8cdb8]">
-            Everyone invited, in progress, or decided. Open a record to see their
-            paper, scores, and decision.
+            {evaluator
+              ? "People who have submitted a test. Open a record to read the work and score it."
+              : "Everyone invited, in progress, or decided. Open a record to see their paper, scores, and decision."}
           </p>
         </div>
         {can(staff.role, "invite") ? (
@@ -60,12 +69,16 @@ export default async function CandidatesPage({
         />
         <select
           name="status"
-          defaultValue={status}
+          defaultValue={statusFilter}
           className="rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm text-[#f3efe6]"
         >
-          <option value="">All statuses</option>
-          <option value="INVITED">Invited</option>
-          <option value="IN_PROGRESS">In progress</option>
+          <option value="">{evaluator ? "Submitted tests" : "All statuses"}</option>
+          {evaluator ? null : (
+            <>
+              <option value="INVITED">Invited</option>
+              <option value="IN_PROGRESS">In progress</option>
+            </>
+          )}
           <option value="COMPLETED">Awaiting review</option>
           <option value="REVIEWED">Reviewed</option>
           <option value="DECIDED">Decided</option>

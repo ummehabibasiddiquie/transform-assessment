@@ -145,6 +145,7 @@ export async function createTask(formData: FormData) {
     data: {
       assessmentVersionId: versionId,
       sequence: nextSequence,
+      
       family: field(formData, "family") || "CUSTOM",
       title: field(formData, "title") || "New task",
       instructions: field(formData, "instructions") || "Write the candidate instructions.",

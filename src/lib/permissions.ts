@@ -1,9 +1,4 @@
-export const STAFF_ROLES = [
-  "ADMIN",
-  "DESIGNER",
-  "EVALUATOR",
-  "HIRING_MANAGER",
-] as const;
+export const STAFF_ROLES = ["ADMIN", "EVALUATOR"] as const;
 
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
@@ -20,12 +15,12 @@ export type Permission =
 const ALLOWED: Record<Permission, StaffRole[]> = {
   viewDashboard: ["ADMIN"],
   manageStaff: ["ADMIN"],
-  editAssessment: ["ADMIN", "DESIGNER"],
-  invite: ["ADMIN", "DESIGNER", "HIRING_MANAGER"],
-  viewCandidates: ["ADMIN", "DESIGNER", "EVALUATOR", "HIRING_MANAGER"],
-  score: ["ADMIN", "EVALUATOR", "HIRING_MANAGER"],
-  interview: ["ADMIN", "EVALUATOR", "HIRING_MANAGER"],
-  decide: ["ADMIN", "HIRING_MANAGER"],
+  editAssessment: ["ADMIN"],
+  invite: ["ADMIN"],
+  viewCandidates: ["ADMIN", "EVALUATOR"],
+  score: ["ADMIN", "EVALUATOR"],
+  interview: ["ADMIN"],
+  decide: ["ADMIN"],
 };
 
 export function can(role: string, permission: Permission) {
@@ -34,12 +29,8 @@ export function can(role: string, permission: Permission) {
 
 export function homePath(role: string) {
   switch (role) {
-    case "DESIGNER":
-      return "/console/assessment";
     case "EVALUATOR":
       return "/console/candidates?status=COMPLETED";
-    case "HIRING_MANAGER":
-      return "/console/candidates";
     default:
       return "/console";
   }
@@ -47,12 +38,8 @@ export function homePath(role: string) {
 
 export function workspaceLabel(role: string) {
   switch (role) {
-    case "DESIGNER":
-      return "Assessment designer";
     case "EVALUATOR":
       return "Evaluator workspace";
-    case "HIRING_MANAGER":
-      return "Interview workspace";
     default:
       return "Admin console";
   }
@@ -62,12 +49,8 @@ export function roleLabel(role: string) {
   switch (role) {
     case "ADMIN":
       return "System admin";
-    case "DESIGNER":
-      return "Assessment designer";
     case "EVALUATOR":
       return "Evaluator";
-    case "HIRING_MANAGER":
-      return "Hiring manager";
     default:
       return role.replaceAll("_", " ");
   }

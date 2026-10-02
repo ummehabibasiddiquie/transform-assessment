@@ -48,10 +48,7 @@ async function main() {
   const staff = [
     { name: "Yahya Irani", email: "yahya.irani@example.net", role: "ADMIN" },
     { name: "Shirin Gafoor", email: "shirin.gafoor@example.net", role: "EVALUATOR" },
-    { name: "Aisha Rahman", email: "ivan.p@example.net", role: "EVALUATOR" },
-    { name: "Neel Joshi", email: "zara.a@example.net", role: "DESIGNER" },
     { name: "Meera Kapoor", email: "ivan.p@example.net", role: "EVALUATOR" },
-    { name: "Arjun Desai", email: "maria.s@example.com", role: "HIRING_MANAGER" },
   ];
 
   for (const person of staff) {
@@ -61,6 +58,11 @@ async function main() {
       create: { ...person, passwordHash },
     });
   }
+
+  await prisma.user.updateMany({
+    where: { role: { in: ["DESIGNER", "HIRING_MANAGER"] } },
+    data: { active: false },
+  });
 
   if ((await prisma.assessment.count()) > 0) {
     console.log("Staff accounts ready. Assessment already exists; skipping content seed.");
@@ -281,9 +283,7 @@ async function main() {
   console.log("Admin:           yahya.irani@example.net");
   console.log("Evaluator:       shirin.gafoor@example.net");
   console.log("Evaluator:       ivan.p@example.net");
-  console.log("Designer:        zara.a@example.net");
   console.log("Evaluator:       ivan.p@example.net");
-  console.log("Hiring manager:  maria.s@example.com");
 }
 
 main()

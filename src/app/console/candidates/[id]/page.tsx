@@ -63,6 +63,19 @@ export default async function CandidateDetailPage({
   const invite = candidate.invites[0];
   const inviteUrl = invite ? `${protocol}://${host}/a/${invite.token}` : "";
   const attempt = candidate.attempts[0];
+  if (staff.role === "EVALUATOR" && attempt?.status !== "SUBMITTED") {
+    return (
+      <div className="space-y-4">
+        <Link href="/console/candidates" className="text-sm text-[#d9784a]">
+          Submitted tests
+        </Link>
+        <h1 className="mt-4 font-serif text-4xl text-[#f3efe6]">{candidate.name}</h1>
+        <p className="text-sm leading-6 text-[#c8cdb8]">
+          This person has not submitted a test yet.
+        </p>
+      </div>
+    );
+  }
   const competencies =
     attempt?.assessmentVersion.assessment.roleVersion.competencies ?? [];
   const lowScores = attempt?.evaluations.filter((item) => item.score <= 3) ?? [];

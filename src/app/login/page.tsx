@@ -34,9 +34,6 @@ export default function LoginPage() {
               <li>yahya.irani@example.net — Admin console</li>
               <li>shirin.gafoor@example.net — Evaluator workspace</li>
               <li>ivan.p@example.net — Evaluator workspace</li>
-              <li>zara.a@example.net — Assessment designer</li>
-              <li>ivan.p@example.net — Evaluator workspace</li>
-              <li>maria.s@example.com — Interview / hiring manager</li>
             </ul>
           </div>
         </section>
