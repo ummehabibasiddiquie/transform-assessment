@@ -1,13 +1,12 @@
 import { jwtVerify, SignJWT } from "jose";
 import { cookies } from "next/headers";
+import { authSecret } from "@/lib/env";
 
 const STAFF_COOKIE = "staff_session";
 const CANDIDATE_COOKIE = "candidate_session";
 
 function secret() {
-  const value = process.env.AUTH_SECRET;
-  if (!value) throw new Error("AUTH_SECRET is not set");
-  return new TextEncoder().encode(value);
+  return new TextEncoder().encode(authSecret());
 }
 
 export type StaffSession = {

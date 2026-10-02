@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { authSecret } from "@/lib/env";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -8,8 +9,13 @@ export async function proxy(request: NextRequest) {
   }
 
   const token = request.cookies.get("staff_session")?.value;
-  const secret = process.env.AUTH_SECRET;
-  if (!token || !secret) {
+  let secret = "";
+  try {
+    secret = authSecret();
+  } catch {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  if (!token) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
