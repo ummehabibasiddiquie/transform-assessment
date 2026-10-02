@@ -31,7 +31,9 @@ export default function LoginPage() {
             </p>
             <LoginForm />
             <ul className="mt-6 space-y-1 text-xs leading-5 text-ink-soft">
-              <li>ivan.p@example.net — Admin console</li>
+              <li>yahya.irani@example.net — Admin console</li>
+              <li>shirin.gafoor@example.net — Evaluator workspace</li>
+              <li>ivan.p@example.net — Evaluator workspace</li>
               <li>zara.a@example.net — Assessment designer</li>
               <li>ivan.p@example.net — Evaluator workspace</li>
               <li>maria.s@example.com — Interview / hiring manager</li>

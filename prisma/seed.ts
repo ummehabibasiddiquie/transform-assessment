@@ -46,7 +46,9 @@ async function main() {
 
   const passwordHash = await bcrypt.hash("transform123", 10);
   const staff = [
-    { name: "Aisha Rahman", email: "ivan.p@example.net", role: "ADMIN" },
+    { name: "Yahya Irani", email: "yahya.irani@example.net", role: "ADMIN" },
+    { name: "Shirin Gafoor", email: "shirin.gafoor@example.net", role: "EVALUATOR" },
+    { name: "Aisha Rahman", email: "ivan.p@example.net", role: "EVALUATOR" },
     { name: "Neel Joshi", email: "zara.a@example.net", role: "DESIGNER" },
     { name: "Meera Kapoor", email: "ivan.p@example.net", role: "EVALUATOR" },
     { name: "Arjun Desai", email: "maria.s@example.com", role: "HIRING_MANAGER" },
@@ -55,14 +57,14 @@ async function main() {
   for (const person of staff) {
     await prisma.user.upsert({
       where: { email: person.email },
-      update: { name: person.name, role: person.role, active: true },
+      update: { name: person.name, role: person.role, active: true, passwordHash },
       create: { ...person, passwordHash },
     });
   }
 
   if ((await prisma.assessment.count()) > 0) {
     console.log("Staff accounts ready. Assessment already exists; skipping content seed.");
-    console.log("Password for new staff accounts: transform123");
+    console.log("Password for seeded staff accounts: transform123");
     return;
   }
 
@@ -276,7 +278,9 @@ async function main() {
   });
 
   console.log("Seed complete. Password for all staff: transform123");
-  console.log("Admin:           ivan.p@example.net");
+  console.log("Admin:           yahya.irani@example.net");
+  console.log("Evaluator:       shirin.gafoor@example.net");
+  console.log("Evaluator:       ivan.p@example.net");
   console.log("Designer:        zara.a@example.net");
   console.log("Evaluator:       ivan.p@example.net");
   console.log("Hiring manager:  maria.s@example.com");
