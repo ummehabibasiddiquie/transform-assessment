@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -37,7 +37,7 @@ model Candidate {
 model Role {
   id       String @id @default(cuid())
   name     String
-  purpose  String
+  purpose  String @db.Text
   status   String @default("ACTIVE")
   versions RoleVersion[]
 }
@@ -57,12 +57,12 @@ model Competency {
   id            String @id @default(cuid())
   roleVersionId String
   name          String
-  definition    String
+  definition    String @db.Text
   weight        Float
   sortOrder     Int
-  exceptional   String
-  acceptable    String
-  poor          String
+  exceptional   String @db.Text
+  acceptable    String @db.Text
+  poor          String @db.Text
   roleVersion   RoleVersion @relation(fields: [roleVersionId], references: [id])
   evaluations   HumanEvaluation[]
 }
@@ -83,9 +83,9 @@ model AssessmentVersion {
   version      Int
   status       String    @default("PUBLISHED")
   publishedAt  DateTime?
-  instructions String
-  aiPolicy     String
-  criticalGates String   @default("")
+  instructions String @db.Text
+  aiPolicy     String @db.Text
+  criticalGates String   @default(dbgenerated("('')")) @db.Text
   assessment   Assessment @relation(fields: [assessmentId], references: [id])
   tasks        Task[]
   attempts     Attempt[]
@@ -97,16 +97,16 @@ model Task {
   assessmentVersionId String
   sequence            Int
   family              String
-  title               String
-  instructions        String
-  referenceMaterial   String @default("")
+  title               String @db.Text
+  instructions        String @db.Text
+  referenceMaterial   String @default(dbgenerated("('')")) @db.Text
   responseType        String
   timeLimitMin        Int?
   aiAllowed           Boolean @default(true)
   searchAllowed       Boolean @default(true)
-  evidenceNotes       String  @default("")
+  evidenceNotes       String  @default(dbgenerated("('')")) @db.Text
   module              String  @default("ROLE")
-  optionsJson         String  @default("[]")
+  optionsJson         String  @default(dbgenerated("('[]')")) @db.Text
   competencyName      String  @default("")
   sourceId            String  @default("")
   isGate              Boolean @default(false)
@@ -137,7 +137,7 @@ model Attempt {
   submittedAt         DateTime?
   overallScore        Float?
   recommendation      String?
-  uncertainties       String    @default("")
+  uncertainties       String    @default(dbgenerated("('')")) @db.Text
   candidate           Candidate @relation(fields: [candidateId], references: [id])
   assessmentVersion   AssessmentVersion @relation(fields: [assessmentVersionId], references: [id])
   invite              Invite?   @relation(fields: [inviteId], references: [id])
@@ -153,8 +153,8 @@ model Response {
   id              String   @id @default(cuid())
   attemptId       String
   taskId          String
-  contentJson     String   @default("{}")
-  resourceLogJson String   @default("{}")
+  contentJson     String   @default(dbgenerated("('{}')")) @db.MediumText
+  resourceLogJson String   @default(dbgenerated("('{}')")) @db.MediumText
   savedAt         DateTime @default(now())
   attempt         Attempt  @relation(fields: [attemptId], references: [id])
   task            Task     @relation(fields: [taskId], references: [id])
@@ -167,7 +167,7 @@ model HumanEvaluation {
   attemptId    String
   competencyId String
   score        Float
-  rationale    String   @default("")
+  rationale    String   @default(dbgenerated("('')")) @db.Text
   evaluatorId  String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -181,8 +181,8 @@ model HumanEvaluation {
 model Interview {
   id             String   @id @default(cuid())
   attemptId      String   @unique
-  notes          String   @default("")
-  probesUsed     String   @default("")
+  notes          String   @default(dbgenerated("('')")) @db.Text
+  probesUsed     String   @default(dbgenerated("('')")) @db.Text
   interviewerId  String
   updatedAt      DateTime @updatedAt
   attempt        Attempt  @relation(fields: [attemptId], references: [id])
@@ -194,7 +194,7 @@ model Decision {
   candidateId String
   attemptId   String
   outcome     String
-  rationale   String
+  rationale   String @db.Text
   decidedById String
   createdAt   DateTime @default(now())
   candidate   Candidate @relation(fields: [candidateId], references: [id])
@@ -208,7 +208,7 @@ model AuditEvent {
   action    String
   entity    String
   entityId  String
-  metadata  String   @default("{}")
+  metadata  String   @default(dbgenerated("('{}')")) @db.Text
   createdAt DateTime @default(now())
   actor     User?    @relation(fields: [actorId], references: [id])
 }
@@ -218,7 +218,7 @@ model LibraryImport {
   libraryVersion String
   fileName       String
   importedAt     DateTime @default(now())
-  summaryJson    String
+  summaryJson    String @db.MediumText
   importedById   String?
 }
 
@@ -228,8 +228,8 @@ model LibraryRole {
   name             String
   level            String
   experienceBand   String
-  coreCapabilities String
-  profile          String
+  coreCapabilities String @db.Text
+  profile          String @db.Text
   status           String @default("ACTIVE")
 }
 
@@ -237,18 +237,18 @@ model LibraryCompetency {
   id         String @id @default(cuid())
   sourceId   String @unique
   name       String
-  definition String
-  evidence   String
-  levelUse   String
+  definition String @db.Text
+  evidence   String @db.Text
+  levelUse   String @db.Text
 }
 
 model LibraryAssessmentType {
   id        String @id @default(cuid())
   sourceId  String @unique
   name      String
-  purpose   String
-  use       String
-  aiDefault String
+  purpose   String @db.Text
+  use       String @db.Text
+  aiDefault String @db.Text
 }
 
 model LibraryContentItem {
@@ -256,17 +256,17 @@ model LibraryContentItem {
   sourceId        String
   bank            String
   family          String @default("")
-  title           String @default("")
-  candidateText   String @default("")
-  evaluatorKey    String @default("")
-  evidenceKey     String @default("")
+  title           String @default(dbgenerated("('')")) @db.Text
+  candidateText   String @default(dbgenerated("('')")) @db.MediumText
+  evaluatorKey    String @default(dbgenerated("('')")) @db.Text
+  evidenceKey     String @default(dbgenerated("('')")) @db.Text
   competency      String @default("")
   difficulty      String @default("")
-  aiPolicy        String @default("")
+  aiPolicy        String @default(dbgenerated("('')")) @db.Text
   responseType    String @default("")
   equivalentGroup String @default("")
   status          String @default("ACTIVE")
-  payloadJson     String @default("{}")
+  payloadJson     String @default(dbgenerated("('{}')")) @db.MediumText
 
   @@unique([bank, sourceId])
 }
@@ -280,15 +280,15 @@ model LibraryBlueprint {
   itemCount      String
   weight         String
   mandatory      String
-  aiPolicy       String
+  aiPolicy       String @db.Text
 }
 
 model LibraryConfig {
   id          String @id @default(cuid())
   kind        String
   sourceId    String
-  title       String @default("")
-  payloadJson String @default("{}")
+  title       String @default(dbgenerated("('')")) @db.Text
+  payloadJson String @default(dbgenerated("('{}')")) @db.MediumText
 
   @@unique([kind, sourceId])
 }
@@ -296,9 +296,9 @@ model LibraryConfig {
 model TaskKey {
   id        String @id @default(cuid())
   taskId    String @unique
-  answerKey String @default("")
-  rubric    String @default("")
-  evidence  String @default("")
+  answerKey String @default(dbgenerated("('')")) @db.Text
+  rubric    String @default(dbgenerated("('')")) @db.Text
+  evidence  String @default(dbgenerated("('')")) @db.Text
   task      Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
@@ -308,11 +308,11 @@ model AssessmentTrack {
   roleName         String
   level            String
   experienceBand   String     @default("")
-  parentProfile    String     @default("")
-  competencies     String     @default("")
-  assessmentTypes  String     @default("")
-  aiPolicy         String     @default("")
-  criticalGates    String     @default("")
+  parentProfile    String     @default(dbgenerated("('')")) @db.Text
+  competencies     String     @default(dbgenerated("('')")) @db.Text
+  assessmentTypes  String     @default(dbgenerated("('')")) @db.Text
+  aiPolicy         String     @default(dbgenerated("('')")) @db.Text
+  criticalGates    String     @default(dbgenerated("('')")) @db.Text
   status           String     @default("ACTIVE")
   items            BankItem[]
 }
@@ -323,12 +323,12 @@ model BankItem {
   module          String
   trackId         String?
   responseType    String
-  title           String
-  prompt          String
-  optionsJson     String           @default("[]")
-  answerKey       String           @default("")
-  rubric          String           @default("")
-  evidence        String           @default("")
+  title           String @db.Text
+  prompt          String @db.Text
+  optionsJson     String           @default(dbgenerated("('[]')")) @db.Text
+  answerKey       String           @default(dbgenerated("('')")) @db.Text
+  rubric          String           @default(dbgenerated("('')")) @db.Text
+  evidence        String           @default(dbgenerated("('')")) @db.Text
   competency      String           @default("")
   difficulty      String           @default("")
   timeLimitMin    Int?
@@ -355,7 +355,7 @@ model AiSuggestion {
   attemptId    String
   competencyId String
   score        Float
-  rationale    String   @default("")
+  rationale    String   @default(dbgenerated("('')")) @db.Text
   createdAt    DateTime @default(now())
   attempt      Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
@@ -367,7 +367,7 @@ model GateReview {
   attemptId  String
   gate       String
   status     String
-  note       String   @default("")
+  note       String   @default(dbgenerated("('')")) @db.Text
   reviewerId String
   updatedAt  DateTime @updatedAt
   attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
