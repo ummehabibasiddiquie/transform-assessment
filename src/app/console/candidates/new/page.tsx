@@ -3,6 +3,7 @@ import { planTrackItems } from "@/lib/assemble";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/access";
 import { PaperChoice } from "@/components/PaperChoice";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export const maxDuration = 60;
 
@@ -76,9 +77,12 @@ export default async function InvitePage() {
             label: `${version.assessment.name} · v${version.version} · ${version.tasks.length} tasks`,
           }))}
         />
-        <button className="rounded-md bg-staff-accent px-4 py-2.5 text-sm font-medium text-staff-bg">
+        <SubmitButton
+          pendingText="Building the paper…"
+          className="rounded-md bg-staff-accent px-4 py-2.5 text-sm font-medium text-staff-bg"
+        >
           Create assessment link
-        </button>
+        </SubmitButton>
         {fixedPapers.length === 0 && tracks.length === 0 ? (
           <p className="text-sm text-staff-accent">
             Import the content library before inviting.

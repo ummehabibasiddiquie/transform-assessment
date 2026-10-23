@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/access";
 import { importRoleQuestions } from "@/lib/library-actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export const maxDuration = 60;
 
@@ -56,9 +57,12 @@ export default async function ConfigureLibraryPage({
       <form action={importRoleQuestions} className="space-y-4 rounded-lg border border-staff-line p-5">
         <h2 className="font-serif text-2xl text-staff-strong">2. Upload the completed file</h2>
         <input type="file" name="file" accept=".xlsx" required className={inputClass} />
-        <button className="rounded-md bg-staff-accent px-4 py-2.5 text-sm font-medium text-staff-bg">
+        <SubmitButton
+          pendingText="Importing questions…"
+          className="rounded-md bg-staff-accent px-4 py-2.5 text-sm font-medium text-staff-bg"
+        >
           Import questions
-        </button>
+        </SubmitButton>
       </form>
 
       <section className="space-y-3">

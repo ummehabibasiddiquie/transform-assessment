@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/access";
 import { importLibraryFile } from "@/lib/library-actions";
 import { BANK_LABELS, type ContentBank } from "@/lib/library";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export const maxDuration = 60;
 
@@ -81,9 +82,12 @@ export default async function LibraryPage({
             required
             className="text-sm text-staff-body"
           />
-          <button className="rounded-md bg-staff-accent px-4 py-2 text-sm font-medium text-staff-bg">
+          <SubmitButton
+            pendingText="Importing… this can take up to a minute"
+            className="rounded-md bg-staff-accent px-4 py-2 text-sm font-medium text-staff-bg"
+          >
             Import library
-          </button>
+          </SubmitButton>
         </form>
         {latest ? (
           <p className="mt-3 text-xs uppercase tracking-[0.14em] break-all text-staff-muted">

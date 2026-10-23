@@ -10,6 +10,18 @@ export function authSecret() {
   return value;
 }
 
+export function appUrl(headers: Headers) {
+  const configured = runtimeEnv(["APP", "URL"])?.trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  const host =
+    headers.get("x-forwarded-host")?.split(",")[0].trim() ||
+    headers.get("host") ||
+    "localhost:3000";
+  const forwardedProto = headers.get("x-forwarded-proto")?.split(",")[0].trim();
+  const protocol = forwardedProto || (host.startsWith("localhost") ? "http" : "https");
+  return `${protocol}://${host}`;
+}
+
 export function anthropicApiKey() {
   const value = runtimeEnv(["ANTHROPIC", "API", "KEY"]);
   if (!value) throw new Error("ANTHROPIC_API_KEY is not set");

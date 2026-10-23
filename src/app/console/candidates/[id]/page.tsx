@@ -19,6 +19,8 @@ import { GATE_STATUSES, gateRules } from "@/lib/gates";
 import { bandFor, bandsForRole } from "@/lib/bands";
 import { readEvidenceKeys } from "@/lib/competency-evidence";
 import { CompetencyEvidence } from "@/components/CompetencyEvidence";
+import { SubmitButton } from "@/components/SubmitButton";
+import { appUrl } from "@/lib/env";
 import { requireStaff } from "@/lib/access";
 import { can } from "@/lib/permissions";
 
@@ -93,10 +95,9 @@ export default async function CandidateDetailPage({
   });
   if (!candidate) notFound();
 
-  const host = (await headers()).get("host") ?? "localhost:3000";
-  const protocol = host.includes("localhost") ? "http" : "https";
+  const baseUrl = appUrl(await headers());
   const invite = candidate.invites[0];
-  const inviteUrl = invite ? `${protocol}://${host}/a/${invite.token}` : "";
+  const inviteUrl = invite ? `${baseUrl}/a/${invite.token}` : "";
   const attempt = candidate.attempts[0];
   if (staff.role === "EVALUATOR" && attempt?.status !== "SUBMITTED") {
     return (
@@ -377,9 +378,12 @@ export default async function CandidateDetailPage({
           <form action={runAutoEvaluation} className="mt-4">
             <input type="hidden" name="attemptId" value={attempt.id} />
             <input type="hidden" name="candidateId" value={candidate.id} />
-            <button className="rounded-md border border-staff-accent px-4 py-2 text-sm text-staff-strong">
+            <SubmitButton
+              pendingText="Claude is reading the answers…"
+              className="rounded-md border border-staff-accent px-4 py-2 text-sm text-staff-strong"
+            >
               Score with Claude
-            </button>
+            </SubmitButton>
           </form>
           {auto === "ok" ? (
             <p className="mt-3 text-sm text-staff-body">
