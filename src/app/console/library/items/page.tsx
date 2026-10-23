@@ -22,10 +22,10 @@ export default async function LibraryItemsPage({
   return (
     <div className="max-w-4xl space-y-8">
       <div>
-        <Link href="/console/library" className="text-sm text-[#d9784a]">
+        <Link href="/console/library" className="text-sm text-staff-accent">
           Content library
         </Link>
-        <h1 className="mt-3 font-serif text-4xl text-[#f3efe6]">{BANK_LABELS[bank]}</h1>
+        <h1 className="mt-3 font-serif text-4xl text-staff-strong">{BANK_LABELS[bank]}</h1>
       </div>
 
       <div className="flex flex-wrap gap-2 text-sm">
@@ -34,7 +34,7 @@ export default async function LibraryItemsPage({
             key={item}
             href={`/console/library/items?bank=${item}`}
             className={`rounded-md px-3 py-1.5 ${
-              bank === item ? "bg-[#d9784a] text-[#121612]" : "text-[#c8cdb8]"
+              bank === item ? "bg-staff-accent text-staff-bg" : "text-staff-body"
             }`}
           >
             {BANK_LABELS[item]}
@@ -43,11 +43,11 @@ export default async function LibraryItemsPage({
       </div>
 
       {items.length === 0 ? (
-        <p className="text-sm text-[#9aa392]">Import the Excel library first.</p>
+        <p className="text-sm text-staff-muted">Import the Excel library first.</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-[#2a332a]">
+        <div className="overflow-hidden rounded-lg border border-staff-line">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-[#2a332a] text-xs uppercase tracking-[0.14em] text-[#9aa392]">
+            <thead className="border-b border-staff-line text-xs uppercase tracking-[0.14em] text-staff-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">ID</th>
                 <th className="px-4 py-3 font-medium">Title</th>
@@ -57,15 +57,15 @@ export default async function LibraryItemsPage({
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.id} className="border-b border-[#2a332a] last:border-0">
+                <tr key={item.id} className="border-b border-staff-line last:border-0">
                   <td className="px-4 py-3">
-                    <Link className="text-[#d9784a] hover:underline" href={`/console/library/items/${item.id}`}>
+                    <Link className="text-staff-accent hover:underline" href={`/console/library/items/${item.id}`}>
                       {item.sourceId}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-[#f3efe6]">{item.title || item.family}</td>
-                  <td className="px-4 py-3 text-[#c8cdb8]">{item.family}</td>
-                  <td className="px-4 py-3 text-[#c8cdb8]">{item.difficulty}</td>
+                  <td className="px-4 py-3 text-staff-strong">{item.title || item.family}</td>
+                  <td className="px-4 py-3 text-staff-body">{item.family}</td>
+                  <td className="px-4 py-3 text-staff-body">{item.difficulty}</td>
                 </tr>
               ))}
             </tbody>

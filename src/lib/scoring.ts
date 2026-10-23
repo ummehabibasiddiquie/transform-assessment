@@ -1,12 +1,5 @@
 export type Recommendation = "STRONG_HIRE" | "HIRE" | "HOLD" | "NO_HIRE";
 
-export function recommendationFromScore(score: number): Recommendation {
-  if (score >= 85) return "STRONG_HIRE";
-  if (score >= 72) return "HIRE";
-  if (score >= 60) return "HOLD";
-  return "NO_HIRE";
-}
-
 export function recommendationLabel(value: string) {
   switch (value) {
     case "STRONG_HIRE":

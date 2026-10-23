@@ -13,9 +13,9 @@ export type CandidateRow = {
 
 export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-[#2a332a]">
+    <div className="overflow-x-auto rounded-lg border border-staff-line">
       <table className="w-full min-w-[760px] text-left text-sm">
-        <thead className="border-b border-[#2a332a] text-xs uppercase tracking-[0.14em] text-[#9aa392]">
+        <thead className="border-b border-staff-line text-xs uppercase tracking-[0.14em] text-staff-muted">
           <tr>
             <th className="px-4 py-3 font-medium">Name</th>
             <th className="px-4 py-3 font-medium">Status</th>
@@ -28,7 +28,7 @@ export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
         <tbody>
           {candidates.length === 0 ? (
             <tr>
-              <td className="px-4 py-8 text-[#9aa392]" colSpan={6}>
+              <td className="px-4 py-8 text-staff-muted" colSpan={6}>
                 No candidates match this view.
               </td>
             </tr>
@@ -37,17 +37,17 @@ export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
               const attempt = candidate.attempts[0];
               const decision = candidate.decisions[0];
               return (
-                <tr key={candidate.id} className="border-b border-[#2a332a] last:border-0">
+                <tr key={candidate.id} className="border-b border-staff-line last:border-0">
                   <td className="px-4 py-3">
                     <Link
-                      className="text-[#f3efe6] hover:underline"
+                      className="text-staff-strong hover:underline"
                       href={`/console/candidates/${candidate.id}`}
                     >
                       {candidate.name}
                     </Link>
-                    <p className="text-xs text-[#9aa392]">{candidate.email}</p>
+                    <p className="text-xs text-staff-muted">{candidate.email}</p>
                   </td>
-                  <td className="px-4 py-3 text-[#c8cdb8]">
+                  <td className="px-4 py-3 text-staff-body">
                     {candidateStatusLabel(candidate.status)}
                   </td>
                   <td className="px-4 py-3">
@@ -63,7 +63,7 @@ export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <Link
-                      className="text-[#d9784a] hover:underline"
+                      className="text-staff-accent hover:underline"
                       href={`/console/candidates/${candidate.id}`}
                     >
                       Open record

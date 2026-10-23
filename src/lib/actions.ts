@@ -10,7 +10,10 @@ import {
   setCandidateSession,
   setStaffSession,
 } from "@/lib/auth";
-import { recommendationFromScore, weightedScore } from "@/lib/scoring";
+import { assembleTrackPaper } from "@/lib/assemble";
+import { saveClaudeDraft } from "@/lib/auto-evaluate";
+import { weightedScore } from "@/lib/scoring";
+import { bandFor, bandsForRole } from "@/lib/bands";
 import { requireStaff } from "@/lib/access";
 import { homePath, STAFF_ROLES, type StaffRole } from "@/lib/permissions";
 
@@ -72,19 +75,19 @@ export async function inviteCandidate(formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const trackCode = String(formData.get("trackCode") ?? "").trim();
   const requestedVersionId = String(formData.get("assessmentVersionId") ?? "");
   if (!name || !email) {
     throw new Error("Name and email are required.");
   }
 
-  const assessmentVersion = requestedVersionId
-    ? await prisma.assessmentVersion.findUnique({ where: { id: requestedVersionId } })
-    : await prisma.assessmentVersion.findFirst({
-        where: { status: "PUBLISHED" },
-        orderBy: { version: "desc" },
-      });
+  const assessmentVersion = trackCode
+    ? await assembleTrackPaper(prisma, trackCode, email)
+    : requestedVersionId
+      ? await prisma.assessmentVersion.findUnique({ where: { id: requestedVersionId } })
+      : null;
   if (!assessmentVersion || assessmentVersion.status !== "PUBLISHED") {
-    throw new Error("Choose a published assessment version.");
+    throw new Error("Choose a role and level, or a published assessment.");
   }
 
   const candidate = await prisma.candidate.create({
@@ -181,7 +184,46 @@ export async function submitAttempt(token: string) {
     entity: "Attempt",
     entityId: attempt.id,
   });
+  try {
+    const admin = await prisma.user.findFirst({
+      where: { role: "ADMIN", active: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (admin) {
+      const draft = await saveClaudeDraft(attempt.id, admin.id);
+      await audit({
+        actorId: admin.id,
+        action: "AUTO_EVALUATION",
+        entity: "Attempt",
+        entityId: attempt.id,
+        metadata: { overall: draft.overall },
+      });
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Claude could not score this test.");
+  }
   redirect(`/a/${token}/done`);
+}
+
+export async function runAutoEvaluation(formData: FormData) {
+  const staff = await requireStaff("score");
+  const attemptId = String(formData.get("attemptId") ?? "");
+  const candidateId = String(formData.get("candidateId") ?? "");
+  const back = `/console/candidates/${candidateId}`;
+  try {
+    const draft = await saveClaudeDraft(attemptId, staff.userId);
+    await audit({
+      actorId: staff.userId,
+      action: "AUTO_EVALUATION",
+      entity: "Attempt",
+      entityId: attemptId,
+      metadata: { overall: draft.overall },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Claude could not score this test.";
+    redirect(`${back}?auto=${encodeURIComponent(message.slice(0, 180))}`);
+  }
+  redirect(`${back}?auto=ok`);
 }
 
 export async function saveEvaluation(formData: FormData) {
@@ -237,7 +279,8 @@ export async function saveEvaluation(formData: FormData) {
   }
 
   const overall = weightedScore(ratings);
-  const recommendation = recommendationFromScore(overall);
+  const roleBands = await bandsForRole(prisma, attempt.assessmentVersion.assessment.name);
+  const recommendation = bandFor(overall, roleBands.bands).recommendation;
   await prisma.attempt.update({
     where: { id: attemptId },
     data: { overallScore: overall, recommendation },
@@ -275,6 +318,49 @@ export async function saveInterview(formData: FormData) {
   await audit({
     actorId: staff.userId,
     action: "SAVE_INTERVIEW",
+    entity: "Attempt",
+    entityId: attemptId,
+  });
+  redirect(`/console/candidates/${candidateId}`);
+}
+
+export async function saveGateReviews(formData: FormData) {
+  const staff = await requireStaff("score");
+  const attemptId = String(formData.get("attemptId") ?? "");
+  const candidateId = String(formData.get("candidateId") ?? "");
+  const count = Number(formData.get("gateCount") ?? 0);
+  for (let index = 0; index < count; index += 1) {
+    const gate = String(formData.get(`gate-name-${index}`) ?? "").trim();
+    const status = String(formData.get(`gate-status-${index}`) ?? "");
+    const note = String(formData.get(`gate-note-${index}`) ?? "").trim();
+    if (!gate || !["PASS", "CONCERN", "FAIL"].includes(status)) continue;
+    await prisma.gateReview.upsert({
+      where: { attemptId_gate: { attemptId, gate } },
+      create: { attemptId, gate, status, note, reviewerId: staff.userId },
+      update: { status, note, reviewerId: staff.userId },
+    });
+  }
+  await audit({
+    actorId: staff.userId,
+    action: "SAVE_GATE_REVIEWS",
+    entity: "Attempt",
+    entityId: attemptId,
+  });
+  redirect(`/console/candidates/${candidateId}`);
+}
+
+export async function saveUncertainties(formData: FormData) {
+  const staff = await requireStaff("score");
+  const attemptId = String(formData.get("attemptId") ?? "");
+  const candidateId = String(formData.get("candidateId") ?? "");
+  const uncertainties = String(formData.get("uncertainties") ?? "").trim();
+  await prisma.attempt.update({
+    where: { id: attemptId },
+    data: { uncertainties },
+  });
+  await audit({
+    actorId: staff.userId,
+    action: "SAVE_UNCERTAINTIES",
     entity: "Attempt",
     entityId: attemptId,
   });

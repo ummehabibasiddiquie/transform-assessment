@@ -15,17 +15,17 @@ export default async function StaffPage() {
   return (
     <div className="max-w-2xl space-y-10">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-[#9aa392]">Admin console</p>
-        <h1 className="mt-2 font-serif text-4xl text-[#f3efe6]">Staff users</h1>
-        <p className="mt-3 text-sm leading-6 text-[#c8cdb8]">
+        <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">Admin console</p>
+        <h1 className="mt-2 font-serif text-4xl text-staff-strong">Staff users</h1>
+        <p className="mt-3 text-sm leading-6 text-staff-body">
           There is no public registration. Add hiring-team accounts here. Candidates
           are invited separately and never use this page.
         </p>
       </div>
 
-      <section className="overflow-hidden rounded-lg border border-[#2a332a]">
+      <section className="overflow-hidden rounded-lg border border-staff-line">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-[#2a332a] text-xs uppercase tracking-[0.14em] text-[#9aa392]">
+          <thead className="border-b border-staff-line text-xs uppercase tracking-[0.14em] text-staff-muted">
             <tr>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Email</th>
@@ -36,22 +36,22 @@ export default async function StaffPage() {
           </thead>
           <tbody>
             {users.map((user) => (
-              <tr key={user.id} className="border-b border-[#2a332a] last:border-0">
-                <td className="px-4 py-3 text-[#f3efe6]">{user.name}</td>
-                <td className="px-4 py-3 text-[#c8cdb8]">{user.email}</td>
-                <td className="px-4 py-3 text-[#c8cdb8]">{roleLabel(user.role)}</td>
-                <td className="px-4 py-3 text-[#c8cdb8]">
+              <tr key={user.id} className="border-b border-staff-line last:border-0">
+                <td className="px-4 py-3 text-staff-strong">{user.name}</td>
+                <td className="px-4 py-3 text-staff-body">{user.email}</td>
+                <td className="px-4 py-3 text-staff-body">{roleLabel(user.role)}</td>
+                <td className="px-4 py-3 text-staff-body">
                   {user.active ? "Active" : "Inactive"}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-3">
-                    <Link className="text-[#d9784a] hover:underline" href={`/console/staff/${user.id}`}>
+                    <Link className="text-staff-accent hover:underline" href={`/console/staff/${user.id}`}>
                       Edit
                     </Link>
                     {user.id !== staff.userId ? (
                       <form action={deleteStaff}>
                         <input type="hidden" name="userId" value={user.id} />
-                        <button className="text-[#9aa392] hover:underline">Delete</button>
+                        <button className="text-staff-muted hover:underline">Delete</button>
                       </form>
                     ) : null}
                   </div>
@@ -63,42 +63,42 @@ export default async function StaffPage() {
       </section>
 
       <section>
-        <h2 className="font-serif text-2xl text-[#f3efe6]">Add a staff person</h2>
+        <h2 className="font-serif text-2xl text-staff-strong">Add a staff person</h2>
         <form action={createStaff} className="mt-5 space-y-4">
           <label className="block space-y-1.5">
-            <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">Full name</span>
+            <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">Full name</span>
             <input
               name="name"
               required
-              className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2.5 text-[#f3efe6]"
+              className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2.5 text-staff-strong"
             />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">Work email</span>
+            <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">Work email</span>
             <input
               name="email"
               type="email"
               required
-              className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2.5 text-[#f3efe6]"
+              className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2.5 text-staff-strong"
             />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">Password</span>
+            <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">Password</span>
             <PasswordInput
               name="password"
               required
               minLength={8}
               autoComplete="new-password"
-              className="rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2.5 text-[#f3efe6]"
+              className="rounded-md border border-staff-line bg-staff-bg px-3 py-2.5 text-staff-strong"
             />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">Application role</span>
+            <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">Application role</span>
             <select
               name="role"
               required
               defaultValue="EVALUATOR"
-              className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2.5 text-[#f3efe6]"
+              className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2.5 text-staff-strong"
             >
               {STAFF_ROLES.map((role) => (
                 <option key={role} value={role}>
@@ -107,7 +107,7 @@ export default async function StaffPage() {
               ))}
             </select>
           </label>
-          <button className="rounded-md bg-[#d9784a] px-4 py-2.5 text-sm font-medium text-[#121612]">
+          <button className="rounded-md bg-staff-accent px-4 py-2.5 text-sm font-medium text-staff-bg">
             Create staff account
           </button>
         </form>

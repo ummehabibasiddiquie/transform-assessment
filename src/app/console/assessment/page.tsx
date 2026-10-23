@@ -34,11 +34,11 @@ export default async function AssessmentContentPage() {
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-[#9aa392]">
+        <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">
           {assessment.roleVersion.role.name}
         </p>
-        <h1 className="mt-2 font-serif text-4xl text-[#f3efe6]">Tasks and questions</h1>
-        <p className="mt-3 text-sm leading-6 text-[#c8cdb8]">
+        <h1 className="mt-2 font-serif text-4xl text-staff-strong">Tasks and questions</h1>
+        <p className="mt-3 text-sm leading-6 text-staff-body">
           Edit the shared paper here. Publishing creates a new version for people
           you invite after that. Candidates who already started keep the paper they
           were given.
@@ -46,19 +46,19 @@ export default async function AssessmentContentPage() {
       </div>
 
       {working ? (
-        <section className="rounded-lg border border-[#2a332a] p-5">
+        <section className="rounded-lg border border-staff-line p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-serif text-2xl text-[#f3efe6]">
+            <h2 className="font-serif text-2xl text-staff-strong">
               {locked ? "Published paper" : "Draft — not given to anyone yet"}
             </h2>
-            <p className="text-xs uppercase tracking-[0.14em] text-[#9aa392]">
+            <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">
               Version {working.version}
             </p>
           </div>
 
           {locked ? (
             <form action={startTemplateDraft.bind(null, assessment.id)} className="mt-4">
-              <button className="rounded-md bg-[#d9784a] px-4 py-2 text-sm font-medium text-[#121612]">
+              <button className="rounded-md bg-staff-accent px-4 py-2 text-sm font-medium text-staff-bg">
                 Edit a new draft
               </button>
             </form>
@@ -66,12 +66,12 @@ export default async function AssessmentContentPage() {
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
                 href={`/console/assessment/tasks/new?versionId=${working.id}`}
-                className="rounded-md bg-[#d9784a] px-4 py-2 text-sm font-medium text-[#121612]"
+                className="rounded-md bg-staff-accent px-4 py-2 text-sm font-medium text-staff-bg"
               >
                 Add task
               </Link>
               <form action={publishDraft.bind(null, working.id)}>
-                <button className="rounded-md border border-[#d9784a] px-4 py-2 text-sm text-[#d9784a]">
+                <button className="rounded-md border border-staff-accent px-4 py-2 text-sm text-staff-accent">
                   Publish for new invites
                 </button>
               </form>
@@ -81,7 +81,7 @@ export default async function AssessmentContentPage() {
           <form action={saveVersionCopy} className="mt-6 space-y-4">
             <input type="hidden" name="versionId" value={working.id} />
             <label className="block space-y-1.5">
-              <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">
+              <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
                 Opening instructions
               </span>
               <textarea
@@ -89,11 +89,11 @@ export default async function AssessmentContentPage() {
                 rows={5}
                 defaultValue={working.instructions}
                 disabled={locked}
-                className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm text-[#f3efe6] disabled:opacity-60"
+                className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-strong disabled:opacity-60"
               />
             </label>
             <label className="block space-y-1.5">
-              <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">
+              <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
                 AI / resource policy
               </span>
               <textarea
@@ -101,11 +101,11 @@ export default async function AssessmentContentPage() {
                 rows={3}
                 defaultValue={working.aiPolicy}
                 disabled={locked}
-                className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm text-[#f3efe6] disabled:opacity-60"
+                className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-strong disabled:opacity-60"
               />
             </label>
             <label className="block space-y-1.5">
-              <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">
+              <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
                 Estimated minutes
               </span>
               <input
@@ -113,11 +113,11 @@ export default async function AssessmentContentPage() {
                 type="number"
                 defaultValue={assessment.durationMin}
                 disabled={locked}
-                className="w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm text-[#f3efe6] disabled:opacity-60"
+                className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-strong disabled:opacity-60"
               />
             </label>
             {locked ? null : (
-              <button className="rounded-md border border-[#2a332a] px-4 py-2 text-sm text-[#f3efe6]">
+              <button className="rounded-md border border-staff-line px-4 py-2 text-sm text-staff-strong">
                 Save instructions
               </button>
             )}
@@ -125,38 +125,38 @@ export default async function AssessmentContentPage() {
         </section>
       ) : null}
 
-      <section className="rounded-lg border border-[#2a332a] p-5">
-        <h2 className="font-serif text-2xl text-[#f3efe6]">Competencies</h2>
-        <ul className="mt-4 space-y-3 text-sm text-[#c8cdb8]">
+      <section className="rounded-lg border border-staff-line p-5">
+        <h2 className="font-serif text-2xl text-staff-strong">Competencies</h2>
+        <ul className="mt-4 space-y-3 text-sm text-staff-body">
           {assessment.roleVersion.competencies.map((item) => (
             <li key={item.id}>
-              <span className="text-[#f3efe6]">{item.name}</span> · {item.weight}% — {item.definition}
+              <span className="text-staff-strong">{item.name}</span> · {item.weight}% — {item.definition}
             </li>
           ))}
         </ul>
       </section>
 
       <section className="space-y-4">
-        <h2 className="font-serif text-2xl text-[#f3efe6]">
+        <h2 className="font-serif text-2xl text-staff-strong">
           Tasks on this {locked ? "published" : "draft"} paper
         </h2>
         {working?.tasks.map((task) => (
-          <article key={task.id} className="rounded-lg border border-[#2a332a] p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">
+          <article key={task.id} className="rounded-lg border border-staff-line p-5">
+            <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">
               Slot {task.sequence} · {task.family}
             </p>
-            <h3 className="mt-1 font-serif text-xl text-[#f3efe6]">{task.title}</h3>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#c8cdb8]">
+            <h3 className="mt-1 font-serif text-xl text-staff-strong">{task.title}</h3>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-staff-body">
               {task.instructions}
             </p>
             {locked ? null : (
               <div className="mt-4 flex gap-3">
-                <Link className="text-sm text-[#d9784a]" href={`/console/assessment/tasks/${task.id}`}>
+                <Link className="text-sm text-staff-accent" href={`/console/assessment/tasks/${task.id}`}>
                   Edit
                 </Link>
                 <form action={deleteTask}>
                   <input type="hidden" name="taskId" value={task.id} />
-                  <button className="text-sm text-[#9aa392]">Remove</button>
+                  <button className="text-sm text-staff-muted">Remove</button>
                 </form>
               </div>
             )}

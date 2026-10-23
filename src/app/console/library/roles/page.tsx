@@ -18,22 +18,22 @@ export default async function LibraryRolesPage() {
   return (
     <div className="max-w-4xl space-y-8">
       <div>
-        <Link href="/console/library" className="text-sm text-[#d9784a]">
+        <Link href="/console/library" className="text-sm text-staff-accent">
           Content library
         </Link>
-        <h1 className="mt-3 font-serif text-4xl text-[#f3efe6]">Role library</h1>
-        <p className="mt-3 text-sm leading-6 text-[#c8cdb8]">
+        <h1 className="mt-3 font-serif text-4xl text-staff-strong">Role library</h1>
+        <p className="mt-3 text-sm leading-6 text-staff-body">
           These role/level profiles come from the imported workbook. New roles
           should be added in the library, not hard-coded in the candidate screens.
         </p>
       </div>
 
       {roles.length === 0 ? (
-        <p className="text-sm text-[#9aa392]">Import the Excel library first.</p>
+        <p className="text-sm text-staff-muted">Import the Excel library first.</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-[#2a332a]">
+        <div className="overflow-hidden rounded-lg border border-staff-line">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-[#2a332a] text-xs uppercase tracking-[0.14em] text-[#9aa392]">
+            <thead className="border-b border-staff-line text-xs uppercase tracking-[0.14em] text-staff-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">ID</th>
                 <th className="px-4 py-3 font-medium">Role</th>
@@ -44,18 +44,18 @@ export default async function LibraryRolesPage() {
             </thead>
             <tbody>
               {roles.map((role) => (
-                <tr key={role.id} className="border-b border-[#2a332a] last:border-0 align-top">
-                  <td className="px-4 py-3 text-[#9aa392]">{role.sourceId}</td>
-                  <td className="px-4 py-3 text-[#f3efe6]">
+                <tr key={role.id} className="border-b border-staff-line last:border-0 align-top">
+                  <td className="px-4 py-3 text-staff-muted">{role.sourceId}</td>
+                  <td className="px-4 py-3 text-staff-strong">
                     {role.name}
-                    <p className="mt-1 text-xs text-[#c8cdb8]">{role.profile}</p>
+                    <p className="mt-1 text-xs text-staff-body">{role.profile}</p>
                   </td>
-                  <td className="px-4 py-3 text-[#c8cdb8]">
+                  <td className="px-4 py-3 text-staff-body">
                     {role.level}
                     <p className="mt-1 text-xs">{role.experienceBand}</p>
                   </td>
-                  <td className="px-4 py-3 text-[#c8cdb8]">{role.coreCapabilities}</td>
-                  <td className="px-4 py-3 text-[#c8cdb8]">
+                  <td className="px-4 py-3 text-staff-body">{role.coreCapabilities}</td>
+                  <td className="px-4 py-3 text-staff-body">
                     {blueprintCount[`${role.name}|${role.level}`] ?? 0}
                   </td>
                 </tr>

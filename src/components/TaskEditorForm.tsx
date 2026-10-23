@@ -1,5 +1,5 @@
 const inputClass =
-  "w-full rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2.5 text-[#f3efe6] outline-none focus:border-[#d9784a]";
+  "w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2.5 text-staff-strong outline-none focus:border-staff-accent";
 
 const FAMILIES = [
   { value: "CUSTOM", label: "Written answer" },
@@ -37,16 +37,16 @@ export function TaskEditorForm({
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="versionId" value={versionId} />
-      {task?.id ? <input type="hidden" name="taskId" value={task.id} /> : null}
+      {task?.id ? <input type="hidden" name="taskId" value={task.id} /> : null} 
       {candidateId ? <input type="hidden" name="candidateId" value={candidateId} /> : null}
 
       <label className="block space-y-1.5">
-        <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">Title</span>
+        <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">Title</span>
         <input name="title" required defaultValue={task?.title} className={inputClass} />
       </label>
 
       <label className="block space-y-1.5">
-        <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">Task type</span>
+        <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">Task type</span>
         <select name="family" defaultValue={task?.family ?? "CUSTOM"} className={inputClass}>
           {FAMILIES.map((item) => (
             <option key={item.value} value={item.value}>
@@ -57,7 +57,7 @@ export function TaskEditorForm({
       </label>
 
       <label className="block space-y-1.5">
-        <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">
+        <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
           Candidate instructions
         </span>
         <textarea
@@ -70,7 +70,7 @@ export function TaskEditorForm({
       </label>
 
       <label className="block space-y-1.5">
-        <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">
+        <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
           Reference material (optional)
         </span>
         <textarea
@@ -83,7 +83,7 @@ export function TaskEditorForm({
       </label>
 
       <label className="block space-y-1.5">
-        <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">
+        <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
           What the evaluator should look for
         </span>
         <textarea
@@ -95,7 +95,7 @@ export function TaskEditorForm({
       </label>
 
       <label className="block space-y-1.5">
-        <span className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">
+        <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
           Time guide (minutes)
         </span>
         <input
@@ -107,7 +107,7 @@ export function TaskEditorForm({
         />
       </label>
 
-      <label className="flex items-center gap-2 text-sm text-[#c8cdb8]">
+      <label className="flex items-center gap-2 text-sm text-staff-body">
         <input
           type="checkbox"
           name="aiAllowed"
@@ -116,7 +116,7 @@ export function TaskEditorForm({
         Candidate may use search and AI
       </label>
 
-      <button className="rounded-md bg-[#d9784a] px-4 py-2.5 text-sm font-medium text-[#121612]">
+      <button className="rounded-md bg-staff-accent px-4 py-2.5 text-sm font-medium text-staff-bg">
         {submitLabel}
       </button>
     </form>

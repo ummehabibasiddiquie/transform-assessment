@@ -27,6 +27,12 @@ const LEARN_CLASSIFY = [
 
 async function main() {
   if (process.env.SEED_RESET === "true") {
+    await prisma.aiSuggestion.deleteMany();
+    await prisma.gateReview.deleteMany();
+    await prisma.questionExposure.deleteMany();
+    await prisma.taskKey.deleteMany();
+    await prisma.bankItem.deleteMany();
+    await prisma.assessmentTrack.deleteMany();
     await prisma.auditEvent.deleteMany();
     await prisma.decision.deleteMany();
     await prisma.interview.deleteMany();

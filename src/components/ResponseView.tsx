@@ -1,4 +1,5 @@
 import { parseJson } from "@/lib/json";
+import { responseHasAnswer } from "@/lib/question-shape";
 
 export function ResponseView({
   family,
@@ -13,7 +14,7 @@ export function ResponseView({
   const log = parseJson<Record<string, unknown>>(resourceLogJson, {});
 
   return (
-    <div className="space-y-4 text-sm leading-6 text-[#c8cdb8]">
+    <div className="space-y-4 text-sm leading-6 text-staff-body">
       {family === "A" ? <LearnView content={content} /> : null}
       {family === "P" ? <InvestigateView content={content} /> : null}
       {family === "R" ? <ResearchView content={content} /> : null}
@@ -21,7 +22,7 @@ export function ResponseView({
       {family === "M" ? <MessageView content={content} /> : null}
       {family === "I" ? <ImproveView content={content} /> : null}
       {family === "CUSTOM" || !["A", "P", "R", "C", "M", "I"].includes(family) ? (
-        <Block label="Answer" value={content.answer} />
+        <AnswerBlocks content={content} />
       ) : null}
       {Boolean(log.tools || log.verified) ? (
         <p>
@@ -33,11 +34,78 @@ export function ResponseView({
   );
 }
 
+function AnswerBlocks({ content }: { content: Record<string, unknown> }) {
+  const labels = record(content.labels);
+  const decisions = record(content.decisions);
+  const support = record(content.support);
+  const order = Array.isArray(content.order) ? content.order.map(String) : [];
+  const selected = Array.isArray(content.selected) ? content.selected.map(String) : [];
+
+  return (
+    <div className="space-y-3">
+      <Filled label="Choice" value={content.choice} />
+      <Filled label="Selected" value={selected.length > 0 ? selected.join(", ") : ""} />
+      <Filled label="Number" value={content.value} />
+      <Filled label="Order" value={order.length > 0 ? order.join(" → ") : ""} />
+      <Filled label="Classifications" value={labels ? pairs(labels) : ""} />
+      <Filled label="Decisions" value={decisions ? pairs(decisions) : ""} />
+      <Filled label="Source check" value={support ? pairs(support) : ""} />
+      <Filled label="Mismatch rows" value={content.mismatches} />
+      <Filled label="Source total" value={content.total} />
+      <Filled label="Action" value={content.decision} />
+      <Filled label="Below target" value={content.belowTarget} />
+      <Filled label="Quality concern" value={content.qualityConcern} />
+      <Filled label="Not a low performer yet" value={content.notLowPerformer} />
+      <Filled label="Still needed on Ravi" value={content.raviNeeded} />
+      <Filled label="Investigate first" value={content.investigateFirst} />
+      <Filled label="Facts" value={content.facts} />
+      <Filled label="Hypotheses" value={content.hypotheses} />
+      <Filled label="Changed rows" value={content.changedRows} />
+      <Filled
+        label="Earlier work"
+        value={
+          content.scope === "all"
+            ? "Restart all of the work"
+            : content.scope === "affected"
+              ? "Recheck only the affected work"
+              : content.scope
+        }
+      />
+      <Filled label="Missing evidence" value={content.missing} />
+      <Filled label="Blocked task" value={content.blocked} />
+      <Filled label="Checks before sharing" value={content.checks} />
+      <Filled label="Start with" value={content.startAt} />
+      <Filled label="Changes" value={content.changes} />
+      <Filled label="Keep under human review" value={content.humanReview} />
+      <Filled label="Measures" value={content.measures} />
+      <Filled label="Answer" value={content.answer} />
+      {!responseHasAnswer(JSON.stringify(content)) ? <Block label="Answer" value="" /> : null}
+    </div>
+  );
+}
+
+function record(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const entries = Object.entries(value as Record<string, unknown>);
+  return entries.length > 0 ? Object.fromEntries(entries.map(([key, item]) => [key, String(item)])) : null;
+}
+
+function pairs(value: Record<string, string>) {
+  return Object.entries(value)
+    .map(([key, item]) => `${key}: ${item}`)
+    .join("\n");
+}
+
+function Filled({ label, value }: { label: string; value: unknown }) {
+  if (value == null || String(value).trim() === "") return null;
+  return <Block label={label} value={value} />;
+}
+
 function Block({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.14em] text-[#9aa392]">{label}</p>
-      <p className="mt-1 whitespace-pre-wrap text-[#e7eadf]">
+      <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">{label}</p>
+      <p className="mt-1 whitespace-pre-wrap text-staff-text">
         {value ? String(value) : "—"}
       </p>
     </div>
@@ -53,7 +121,7 @@ function LearnView({ content }: { content: Record<string, unknown> }) {
       <Block label="Assumptions" value={content.assumptions} />
       <Block label="Uncertainty" value={content.uncertainty} />
       <div>
-        <p className="text-xs uppercase tracking-[0.14em] text-[#9aa392]">Classifications</p>
+        <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">Classifications</p>
         <ul className="mt-2 space-y-1">
           {Object.entries(labels).map(([id, label]) => (
             <li key={id}>
@@ -85,8 +153,8 @@ function ResearchView({ content }: { content: Record<string, unknown> }) {
   return (
     <div className="space-y-3">
       {companies.map((company, index) => (
-        <div key={index} className="rounded-md border border-[#2a332a] p-3">
-          <p className="text-[#f3efe6]">
+        <div key={index} className="rounded-md border border-staff-line p-3">
+          <p className="text-staff-strong">
             {index + 1}. {company.name || "Unnamed"}
           </p>
           <p>Official: {company.official || "—"}</p>
@@ -95,7 +163,7 @@ function ResearchView({ content }: { content: Record<string, unknown> }) {
           <p>Evidence: {company.evidence || "—"}</p>
           <p>Uncertainty: {company.uncertainty || "—"}</p>
         </div>
-      ))}
+      ))}   
       <Block label="Rejected result" value={content.rejected} />
       <Block label="Why rejected" value={content.rejectedWhy} />
       <Block label="How search/AI was used" value={content.method} />
@@ -117,7 +185,7 @@ function ChangeView({ content }: { content: Record<string, unknown> }) {
 function MessageView({ content }: { content: Record<string, unknown> }) {
   return (
     <div className="space-y-3">
-      <Block label="Internal message" value={content.message} />
+      <Block label="Internal mes sage" value={content.message} />
       <Block label="Next action" value={content.nextAction} />
       <Block label="Information before escalating" value={content.info} />
     </div>

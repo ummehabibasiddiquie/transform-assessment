@@ -42,9 +42,9 @@ export default async function CandidatesPage({
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#9aa392]">People</p>
-          <h1 className="mt-2 font-serif text-4xl text-[#f3efe6]">Candidates</h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-[#c8cdb8]">
+          <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">People</p>
+          <h1 className="mt-2 font-serif text-4xl text-staff-strong">Candidates</h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-staff-body">
             {evaluator
               ? "People who have submitted a test. Open a record to read the work and score it."
               : "Everyone invited, in progress, or decided. Open a record to see their paper, scores, and decision."}
@@ -53,7 +53,7 @@ export default async function CandidatesPage({
         {can(staff.role, "invite") ? (
           <Link
             href="/console/candidates/new"
-            className="rounded-md bg-[#d9784a] px-4 py-2 text-sm font-medium text-[#121612]"
+            className="rounded-md bg-staff-accent px-4 py-2 text-sm font-medium text-staff-bg"
           >
             Invite candidate
           </Link>
@@ -65,12 +65,12 @@ export default async function CandidatesPage({
           name="q"
           defaultValue={q}
           placeholder="Search name or email"
-          className="min-w-56 flex-1 rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm text-[#f3efe6] outline-none focus:border-[#d9784a]"
+          className="min-w-56 flex-1 rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-strong outline-none focus:border-staff-accent"
         />
         <select
           name="status"
           defaultValue={statusFilter}
-          className="rounded-md border border-[#2a332a] bg-[#121612] px-3 py-2 text-sm text-[#f3efe6]"
+          className="rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-strong"
         >
           <option value="">{evaluator ? "Submitted tests" : "All statuses"}</option>
           {evaluator ? null : (
@@ -83,12 +83,12 @@ export default async function CandidatesPage({
           <option value="REVIEWED">Reviewed</option>
           <option value="DECIDED">Decided</option>
         </select>
-        <button className="rounded-md border border-[#2a332a] px-4 py-2 text-sm text-[#f3efe6]">
+        <button className="rounded-md border border-staff-line px-4 py-2 text-sm text-staff-strong">
           Filter
         </button>
       </form>
 
-      <p className="text-sm text-[#9aa392]">{candidates.length} people</p>
+      <p className="text-sm text-staff-muted">{candidates.length} people</p>
       <CandidateTable candidates={candidates} />
     </div>
   );

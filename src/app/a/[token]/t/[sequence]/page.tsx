@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCandidateSession } from "@/lib/auth";
 import { TaskWorkspace } from "@/components/TaskWorkspace";
+import { parsePracticalPrompt } from "@/lib/practical-task";
 
 export default async function CandidateTaskPage({
   params,
@@ -19,7 +20,25 @@ export default async function CandidateTaskPage({
     include: {
       responses: true,
       assessmentVersion: {
-        include: { tasks: { orderBy: { sequence: "asc" } } },
+        include: {
+          tasks: {
+            orderBy: { sequence: "asc" },
+            select: {
+              id: true,
+              sequence: true,
+              family: true,
+              title: true,
+              instructions: true,
+              referenceMaterial: true,
+              timeLimitMin: true,
+              aiAllowed: true,
+              searchAllowed: true,
+              responseType: true,
+              optionsJson: true,
+              module: true,
+            },
+          },
+        },
       },
     },
   });
@@ -43,7 +62,7 @@ export default async function CandidateTaskPage({
       <header className="border-b border-line px-5 py-3">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <p className="text-xs uppercase tracking-[0.18em] text-ink-soft">
-            TRANSFORM · work simulation
+            TRANSFORM assessment
           </p>
           <p className="text-xs text-ink-soft">
             {attempt.assessmentVersion.tasks.length} tasks · answers save as you type
@@ -52,11 +71,16 @@ export default async function CandidateTaskPage({
       </header>
       <TaskWorkspace
         token={token}
-        task={task}
+        task={
+          task.responseType === "PRACTICAL"
+            ? { ...task, instructions: "" }
+            : task
+        }
         taskCount={attempt.assessmentVersion.tasks.length}
         initialContent={response?.contentJson ?? "{}"}
         initialLog={response?.resourceLogJson ?? "{}"}
         previousLearnJson={task.family === "C" ? learnResponse?.contentJson : null}
+        practical={task.responseType === "PRACTICAL" ? parsePracticalPrompt(task.instructions) : null}
       />
     </main>
   );

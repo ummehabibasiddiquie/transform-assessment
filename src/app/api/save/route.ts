@@ -25,16 +25,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This attempt can no longer be edited." }, { status: 403 });
   }
 
+  const task = await prisma.task.findFirst({
+    where: {
+      id: body.taskId,
+      assessmentVersionId: attempt.assessmentVersionId,
+    },
+    select: { id: true },
+  });
+  if (!task) {
+    return NextResponse.json({ error: "That task is not on this paper." }, { status: 403 });
+  }
+
   await prisma.response.upsert({
     where: {
       attemptId_taskId: {
         attemptId: attempt.id,
-        taskId: body.taskId,
+        taskId: task.id,
       },
     },
     create: {
       attemptId: attempt.id,
-      taskId: body.taskId,
+      taskId: task.id,
       contentJson: JSON.stringify(body.content ?? {}),
       resourceLogJson: JSON.stringify(body.resourceLog ?? {}),
     },

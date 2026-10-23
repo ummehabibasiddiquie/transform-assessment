@@ -2,6 +2,10 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { parseJson } from "@/lib/json";
+import { isStructuredResponse } from "@/lib/question-shape";
+import type { PracticalTaskView } from "@/lib/practical-task";
+import { PracticalTask } from "@/components/PracticalTask";
+import { StructuredResponse } from "@/components/StructuredResponse";
 
 export type ResourceLog = {
   tools: string;
@@ -14,6 +18,8 @@ type Task = {
   title: string;
   instructions: string;
   referenceMaterial: string;
+  responseType?: string;
+  optionsJson?: string;
 };
 
 type Props = {
@@ -21,9 +27,23 @@ type Props = {
   content: Record<string, unknown>;
   setContent: Dispatch<SetStateAction<Record<string, unknown>>>;
   previousLearn?: Record<string, unknown> | null;
+  practical?: PracticalTaskView | null;
 };
 
-export function TaskForm({ task, content, setContent, previousLearn }: Props) {
+export function TaskForm({ task, content, setContent, previousLearn, practical }: Props) {
+  if (practical) {
+    return <PracticalTask view={practical} content={content} setContent={setContent} />;
+  }
+  if (task.responseType && isStructuredResponse(task.responseType)) {
+    return (
+      <StructuredResponse
+        responseType={task.responseType}
+        optionsJson={task.optionsJson ?? "[]"}
+        content={content}
+        setContent={setContent}
+      />
+    );
+  }
   if (task.family === "A") return <LearnForm task={task} content={content} setContent={setContent} />;
   if (task.family === "P") return <InvestigateForm task={task} content={content} setContent={setContent} />;
   if (task.family === "R") return <ResearchForm content={content} setContent={setContent} />;
@@ -52,7 +72,7 @@ export function ResourceFields({
     <section className="mt-8 border-t border-line pt-6">
       <h2 className="font-serif text-xl">How you used tools</h2>
       <p className="mt-1 mb-4 text-sm text-ink-soft">
-        Using search or AI is allowed. Note what you used and whether you checked it.
+        Note what you used and whether you checked it.
       </p>
       <Field
         label="Tools used"

@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import * as XLSX from "xlsx";
 import { LIBRARY_VERSION, type ContentBank } from "./library";
+import { syncV4Bank } from "./v4-sync";
 
 type Row = Record<string, string>;
 
@@ -478,6 +479,43 @@ export async function importContentLibrary(
     }
     counts[kind] = created;
   }
+
+  const v4Sheets = [
+    ["22_Assessment_Architecture", "ARCHITECTURE", ["Design_Element"], "Design_Element"],
+    ["23_Common_Core_Blueprint", "COMMON_CORE", ["Module_ID"], "Module"],
+    ["24_Role_Specific_Blueprints", "ROLE_TRACK", ["Track_ID"], "Specific_Role_Track"],
+    ["25_Role_Task_Map", "TASK_MAP", ["Task_ID"], "Task_or_Question_Family"],
+    ["26_Readiness_Tracker", "READINESS", ["Track_ID"], "Specific_Role_Track"],
+  ] as const;
+  for (const [sheet, kind, idKeys, titleKey] of v4Sheets) {
+    const rows = sheetRows(workbook, sheet);
+    if (rows.length === 0 && workbook.SheetNames.includes(sheet) === false) {
+      errors.push(`Missing V4 sheet: ${sheet}`);
+    }
+    let created = 0;
+    for (const row of rows) {
+      const sourceId = first(row, ...idKeys);
+      if (!sourceId) continue;
+      await prisma.libraryConfig.upsert({
+        where: { kind_sourceId: { kind, sourceId } },
+        update: { title: first(row, titleKey), payloadJson: payload(row) },
+        create: { kind, sourceId, title: first(row, titleKey), payloadJson: payload(row) },
+      });
+      created += 1;
+    }
+    counts[kind] = created;
+  }
+
+  const bank = await syncV4Bank(prisma, {
+    tracks: sheetRows(workbook, "24_Role_Specific_Blueprints"),
+    objective: sheetRows(workbook, "04_Objective_Questions"),
+    problemSolving: sheetRows(workbook, "06_Problem_Solving"),
+    technical: sheetRows(workbook, "11_Technical_Skills"),
+    simulations: sheetRows(workbook, "10_Work_Simulation"),
+    sjt: sheetRows(workbook, "05_SJT"),
+  });
+  counts.tracks = bank.tracks;
+  counts.bankItems = bank.items;
 
   const summary: ImportSummary = {
     libraryVersion: LIBRARY_VERSION,

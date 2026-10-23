@@ -19,10 +19,10 @@ export default async function CandidateTaskEditPage({
 
   return (
     <div className="max-w-2xl">
-      <p className="text-xs uppercase tracking-[0.2em] text-[#9aa392]">
+      <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">
         Private paper · slot {task.sequence}
       </p>
-      <h1 className="mt-2 mb-8 font-serif text-4xl text-[#f3efe6]">Edit this person’s task</h1>
+      <h1 className="mt-2 mb-8 font-serif text-4xl text-staff-strong">Edit this person’s task</h1>
       <TaskEditorForm
         action={saveTask}
         versionId={task.assessmentVersionId}

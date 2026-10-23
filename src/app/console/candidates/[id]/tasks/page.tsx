@@ -36,40 +36,40 @@ export default async function CandidateTasksPage({
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <Link href={`/console/candidates/${candidate.id}`} className="text-sm text-[#d9784a]">
+        <Link href={`/console/candidates/${candidate.id}`} className="text-sm text-staff-accent">
           Back to {candidate.name}
         </Link>
-        <h1 className="mt-3 font-serif text-4xl text-[#f3efe6]">This candidate’s tasks</h1>
-        <p className="mt-3 text-sm leading-6 text-[#c8cdb8]">
+        <h1 className="mt-3 font-serif text-4xl text-staff-strong">This candidate’s tasks</h1>
+        <p className="mt-3 text-sm leading-6 text-staff-body">
           Changes here apply only to {candidate.name}. The shared template used for
           other people does not change.
         </p>
       </div>
 
       {version ? (
-        <p className="text-sm text-[#9aa392]">
+        <p className="text-sm text-staff-muted">
           Paper version {version.version} · {version.status.toLowerCase()}
         </p>
       ) : (
-        <p className="text-sm text-[#9aa392]">Invite this person first.</p>
+        <p className="text-sm text-staff-muted">Invite this person first.</p>
       )}
 
       {submitted ? (
-        <p className="rounded-md border border-[#2a332a] p-4 text-sm text-[#c8cdb8]">
+        <p className="rounded-md border border-staff-line p-4 text-sm text-staff-body">
           Submitted work is frozen. Create a new invite if you need a different paper.
         </p>
       ) : null}
 
       {canCustomize && version?.status !== "PRIVATE" ? (
         <form action={customizeCandidatePaper.bind(null, candidate.id)}>
-          <button className="rounded-md bg-[#d9784a] px-4 py-2.5 text-sm font-medium text-[#121612]">
+          <button className="rounded-md bg-staff-accent px-4 py-2.5 text-sm font-medium text-staff-bg">
             Make a private copy for this person
           </button>
         </form>
       ) : null}
 
       {started && !submitted ? (
-        <p className="text-sm text-[#c8cdb8]">
+        <p className="text-sm text-staff-body">
           They have already started, so this paper is locked to keep scoring fair.
         </p>
       ) : null}
@@ -77,7 +77,7 @@ export default async function CandidateTasksPage({
       {canEdit ? (
         <Link
           href={`/console/assessment/tasks/new?versionId=${version.id}&candidateId=${candidate.id}`}
-          className="inline-flex rounded-md bg-[#d9784a] px-4 py-2 text-sm font-medium text-[#121612]"
+          className="inline-flex rounded-md bg-staff-accent px-4 py-2 text-sm font-medium text-staff-bg"
         >
           Add a task for {candidate.name}
         </Link>
@@ -85,18 +85,18 @@ export default async function CandidateTasksPage({
 
       <section className="space-y-4">
         {version?.tasks.map((task) => (
-          <article key={task.id} className="rounded-lg border border-[#2a332a] p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">
+          <article key={task.id} className="rounded-lg border border-staff-line p-5">
+            <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">
               Task {task.sequence} · {task.family}
             </p>
-            <h2 className="mt-1 font-serif text-xl text-[#f3efe6]">{task.title}</h2>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#c8cdb8]">
+            <h2 className="mt-1 font-serif text-xl text-staff-strong">{task.title}</h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-staff-body">
               {task.instructions}
             </p>
             {canEdit ? (
               <div className="mt-4 flex gap-3">
                 <Link
-                  className="text-sm text-[#d9784a]"
+                  className="text-sm text-staff-accent"
                   href={`/console/candidates/${candidate.id}/tasks/${task.id}`}
                 >
                   Edit
@@ -104,7 +104,7 @@ export default async function CandidateTasksPage({
                 <form action={deleteTask}>
                   <input type="hidden" name="taskId" value={task.id} />
                   <input type="hidden" name="candidateId" value={candidate.id} />
-                  <button className="text-sm text-[#9aa392]">Remove</button>
+                  <button className="text-sm text-staff-muted">Remove</button>
                 </form>
               </div>
             ) : null}

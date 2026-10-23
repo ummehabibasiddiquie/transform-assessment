@@ -33,11 +33,11 @@ export default async function ConsoleHome() {
     <div className="space-y-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#9aa392]">
+          <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">
             Operations Executive
           </p>
-          <h1 className="mt-2 font-serif text-4xl text-[#f3efe6]">Dashboard</h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-[#c8cdb8]">
+          <h1 className="mt-2 font-serif text-4xl text-staff-strong">Dashboard</h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-staff-body">
             Snapshot of hiring work. Open Candidates for the full list, or Tasks
             to change questions without a developer.
           </p>
@@ -45,13 +45,13 @@ export default async function ConsoleHome() {
         <div className="flex gap-2">
           <Link
             href="/console/candidates"
-            className="rounded-md border border-[#2a332a] px-4 py-2 text-sm text-[#f3efe6]"
+            className="rounded-md border border-staff-line px-4 py-2 text-sm text-staff-strong"
           >
             All candidates
           </Link>
           <Link
             href="/console/candidates/new"
-            className="rounded-md bg-[#d9784a] px-4 py-2 text-sm font-medium text-[#121612]"
+            className="rounded-md bg-staff-accent px-4 py-2 text-sm font-medium text-staff-bg"
           >
             Invite candidate
           </Link>
@@ -74,8 +74,8 @@ export default async function ConsoleHome() {
 
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-3">
-          <h2 className="font-serif text-2xl text-[#f3efe6]">Needs reviewer action</h2>
-          <Link className="text-sm text-[#d9784a]" href="/console/candidates?status=COMPLETED">
+          <h2 className="font-serif text-2xl text-staff-strong">Needs reviewer action</h2>
+          <Link className="text-sm text-staff-accent" href="/console/candidates?status=COMPLETED">
             View all candidates
           </Link>
         </div>
@@ -87,9 +87,9 @@ export default async function ConsoleHome() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[#2a332a] bg-[#171c17] px-4 py-4">
-      <p className="text-xs uppercase tracking-[0.16em] text-[#9aa392]">{label}</p>
-      <p className="mt-2 font-serif text-3xl text-[#f3efe6]">{value}</p>
+    <div className="rounded-lg border border-staff-line bg-staff-panel px-4 py-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">{label}</p>
+      <p className="mt-2 font-serif text-3xl text-staff-strong">{value}</p>
     </div>
   );
 }

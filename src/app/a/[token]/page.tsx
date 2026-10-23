@@ -40,13 +40,17 @@ export default async function CandidateIntroPage({
         <div className="mt-8 space-y-4 rounded-lg border border-line bg-paper-2 p-5 text-base leading-7">
           <p>{version.instructions}</p>
           <p>{version.aiPolicy}</p>
+          <p>
+            Answers save as you type. Follow the permission shown on each task. Answer keys
+            are not shown on this link.
+          </p>
         </div>
         {submitted ? (
           <p className="mt-8 text-sm">This assessment has already been submitted. Thank you.</p>
         ) : (
           <form action={startAttempt.bind(null, token)} className="mt-8">
             <button className="btn-primary rounded-md px-5 py-2.5 text-sm font-medium">
-              I understand — start the simulation
+              I understand — start
             </button>
           </form>
         )}

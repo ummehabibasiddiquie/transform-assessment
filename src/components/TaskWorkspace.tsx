@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { parseJson } from "@/lib/json";
+import { permissionText } from "@/lib/question-shape";
+import type { PracticalTaskView } from "@/lib/practical-task";
 import { ResourceFields, TaskForm, type ResourceLog } from "@/components/TaskForm";
 
 type Task = {
@@ -14,6 +16,10 @@ type Task = {
   referenceMaterial: string;
   timeLimitMin: number | null;
   aiAllowed: boolean;
+  searchAllowed?: boolean;
+  responseType?: string;
+  optionsJson?: string;
+  module?: string;
 };
 
 export function TaskWorkspace({
@@ -23,6 +29,7 @@ export function TaskWorkspace({
   initialContent,
   initialLog,
   previousLearnJson,
+  practical,
 }: {
   token: string;
   task: Task;
@@ -30,6 +37,7 @@ export function TaskWorkspace({
   initialContent: string;
   initialLog: string;
   previousLearnJson?: string | null;
+  practical?: PracticalTaskView | null;
 }) {
   const [content, setContent] = useState<Record<string, unknown>>(
     parseJson(initialContent, {}),
@@ -37,13 +45,26 @@ export function TaskWorkspace({
   const [log, setLog] = useState<ResourceLog>(
     parseJson(initialLog, { tools: "", verified: "" }),
   );
-  const [status, setStatus] = useState("Saved on this device until the server confirms.");
+  const [dirty, setDirty] = useState(false);
+  const [status, setStatus] = useState(
+    initialContent !== "{}" ? "Saved" : "Answers save when you type.",
+  );
   const previousLearn = useMemo(
     () => (previousLearnJson ? parseJson<Record<string, unknown>>(previousLearnJson, {}) : null),
     [previousLearnJson],
   );
 
+  const updateContent: Dispatch<SetStateAction<Record<string, unknown>>> = (value) => {
+    setDirty(true);
+    setContent(value);
+  };
+  const updateLog: Dispatch<SetStateAction<ResourceLog>> = (value) => {
+    setDirty(true);
+    setLog(value);
+  };
+
   useEffect(() => {
+    if (!dirty) return;
     const handle = window.setTimeout(async () => {
       setStatus("Saving…");
       const response = await fetch("/api/save", {
@@ -59,7 +80,7 @@ export function TaskWorkspace({
       setStatus(response.ok ? "Saved" : "Could not save — check your connection and try again.");
     }, 800);
     return () => window.clearTimeout(handle);
-  }, [content, log, task.id, task.sequence]);
+  }, [content, dirty, log, task.id, task.sequence]);
 
   const next =
     task.sequence < taskCount
@@ -72,6 +93,7 @@ export function TaskWorkspace({
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
+            {partLabel(task) ? `${partLabel(task)} · ` : ""}
             Task {task.sequence} of {taskCount}
             {task.timeLimitMin ? ` · about ${task.timeLimitMin} min` : ""}
           </p>
@@ -80,19 +102,22 @@ export function TaskWorkspace({
         <p className="text-xs text-ink-soft">{status}</p>
       </div>
       <p className="mt-4 rounded-md border border-line bg-paper-2 px-4 py-3 text-sm leading-6">
-        {task.aiAllowed
-          ? "You may use search and AI. Verify anything important."
-          : "Do not use AI on this task."}
+        {permissionText(task.aiAllowed, task.searchAllowed ?? task.aiAllowed)}
       </p>
-      <p className="mt-6 whitespace-pre-wrap text-base leading-7">{task.instructions}</p>
+      {practical ? null : (
+        <p className="mt-6 whitespace-pre-wrap text-base leading-7">{task.instructions}</p>
+      )}
       <div className="mt-8">
         <TaskForm
           task={task}
           content={content}
-          setContent={setContent}
+          setContent={updateContent}
           previousLearn={previousLearn}
+          practical={practical}
         />
-        <ResourceFields log={log} setLog={setLog} />
+        {task.aiAllowed || task.searchAllowed ? (
+          <ResourceFields log={log} setLog={updateLog} />
+        ) : null}
       </div>
       <div className="mt-10 flex items-center justify-between gap-3">
         <Link href={previous} className="text-sm" style={{ color: "var(--ink-soft)" }}>
@@ -107,4 +132,13 @@ export function TaskWorkspace({
       </div>
     </div>
   );
+}
+
+function partLabel(task: { module?: string; family: string }) {
+  if (task.module === "COMMON_APTITUDE") return "Part 1 · Aptitude";
+  if (task.module === "COMMON_PROBLEM_SOLVING") return "Part 2 · Problem solving";
+  if (task.module === "ROLE" && (task.family === "Q" || task.family === "CUSTOM")) {
+    return "Part 3 · Role task";
+  }
+  return "";
 }

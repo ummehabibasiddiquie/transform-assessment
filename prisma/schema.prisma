@@ -85,6 +85,7 @@ model AssessmentVersion {
   publishedAt  DateTime?
   instructions String
   aiPolicy     String
+  criticalGates String   @default("")
   assessment   Assessment @relation(fields: [assessmentId], references: [id])
   tasks        Task[]
   attempts     Attempt[]
@@ -102,9 +103,16 @@ model Task {
   responseType        String
   timeLimitMin        Int?
   aiAllowed           Boolean @default(true)
+  searchAllowed       Boolean @default(true)
   evidenceNotes       String  @default("")
+  module              String  @default("ROLE")
+  optionsJson         String  @default("[]")
+  competencyName      String  @default("")
+  sourceId            String  @default("")
+  isGate              Boolean @default(false)
   assessmentVersion   AssessmentVersion @relation(fields: [assessmentVersionId], references: [id])
   responses           Response[]
+  key                 TaskKey?
 }
 
 model Invite {
@@ -129,6 +137,7 @@ model Attempt {
   submittedAt         DateTime?
   overallScore        Float?
   recommendation      String?
+  uncertainties       String    @default("")
   candidate           Candidate @relation(fields: [candidateId], references: [id])
   assessmentVersion   AssessmentVersion @relation(fields: [assessmentVersionId], references: [id])
   invite              Invite?   @relation(fields: [inviteId], references: [id])
@@ -136,6 +145,8 @@ model Attempt {
   evaluations         HumanEvaluation[]
   interview           Interview?
   decisions           Decision[]
+  suggestions         AiSuggestion[]
+  gateReviews         GateReview[]
 }
 
 model Response {
@@ -280,4 +291,86 @@ model LibraryConfig {
   payloadJson String @default("{}")
 
   @@unique([kind, sourceId])
+}
+
+model TaskKey {
+  id        String @id @default(cuid())
+  taskId    String @unique
+  answerKey String @default("")
+  rubric    String @default("")
+  evidence  String @default("")
+  task      Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model AssessmentTrack {
+  id               String     @id @default(cuid())
+  code             String     @unique
+  roleName         String
+  level            String
+  experienceBand   String     @default("")
+  parentProfile    String     @default("")
+  competencies     String     @default("")
+  assessmentTypes  String     @default("")
+  aiPolicy         String     @default("")
+  criticalGates    String     @default("")
+  status           String     @default("ACTIVE")
+  items            BankItem[]
+}
+
+model BankItem {
+  id              String           @id @default(cuid())
+  sourceId        String           @unique
+  module          String
+  trackId         String?
+  responseType    String
+  title           String
+  prompt          String
+  optionsJson     String           @default("[]")
+  answerKey       String           @default("")
+  rubric          String           @default("")
+  evidence        String           @default("")
+  competency      String           @default("")
+  difficulty      String           @default("")
+  timeLimitMin    Int?
+  aiAllowed       Boolean          @default(false)
+  searchAllowed   Boolean          @default(false)
+  equivalentGroup String           @default("")
+  isGate          Boolean          @default(false)
+  status          String           @default("APPROVED")
+  bank            String           @default("")
+  track           AssessmentTrack? @relation(fields: [trackId], references: [id], onDelete: SetNull)
+}
+
+model QuestionExposure {
+  id        String   @id @default(cuid())
+  email     String
+  sourceId  String
+  createdAt DateTime @default(now())
+
+  @@unique([email, sourceId])
+}
+
+model AiSuggestion {
+  id           String   @id @default(cuid())
+  attemptId    String
+  competencyId String
+  score        Float
+  rationale    String   @default("")
+  createdAt    DateTime @default(now())
+  attempt      Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, competencyId])
+}
+
+model GateReview {
+  id         String   @id @default(cuid())
+  attemptId  String
+  gate       String
+  status     String
+  note       String   @default("")
+  reviewerId String
+  updatedAt  DateTime @updatedAt
+  attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, gate])
 }
