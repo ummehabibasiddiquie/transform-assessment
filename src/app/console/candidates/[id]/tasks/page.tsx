@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { customizeCandidatePaper, deleteTask } from "@/lib/content-actions";
 import { requireStaff } from "@/lib/access";
+import { can } from "@/lib/permissions";
 
 export default async function CandidateTasksPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireStaff("editAssessment");
+  const staff = await requireStaff("viewCandidates");
   const { id } = await params;
   const candidate = await prisma.candidate.findUnique({
     where: { id },
@@ -30,8 +31,8 @@ export default async function CandidateTasksPage({
   const version = invite?.assessmentVersion;
   const started = candidate.attempts.length > 0;
   const submitted = candidate.attempts[0]?.status === "SUBMITTED";
-  const canCustomize = Boolean(invite) && !started;
-  const canEdit = version?.status === "PRIVATE" && !submitted;
+  const canCustomize = can(staff.role, "editAssessment") && Boolean(invite) && !started;
+  const canEdit = can(staff.role, "editAssessment") && version?.status === "PRIVATE" && !submitted;
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -39,10 +40,13 @@ export default async function CandidateTasksPage({
         <Link href={`/console/candidates/${candidate.id}`} className="text-sm text-staff-accent">
           Back to {candidate.name}
         </Link>
-        <h1 className="mt-3 font-serif text-4xl text-staff-strong">This candidate’s tasks</h1>
+        <h1 className="mt-3 font-serif text-4xl text-staff-strong">
+          Question paper sent to {candidate.name}
+        </h1>
         <p className="mt-3 text-sm leading-6 text-staff-body">
-          Changes here apply only to {candidate.name}. The shared template used for
-          other people does not change.
+          This is the paper on their invite link, including the question text. The candidate
+          sees the same questions when they open the test. Changes here, if allowed, apply
+          only to this person.
         </p>
       </div>
 

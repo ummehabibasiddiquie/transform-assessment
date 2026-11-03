@@ -32,6 +32,7 @@ import { appUrl } from "@/lib/env";
 import { requireStaff } from "@/lib/access";
 import { can } from "@/lib/permissions";
 import { defaultCompleteByInput, HR_CONTACT_EMAIL } from "@/lib/invite-email";
+import { optionsText } from "@/lib/question-sheet";
 
 export const maxDuration = 60;
 
@@ -75,7 +76,16 @@ export default async function CandidateDetailPage({
               assessment: { select: { name: true } },
               tasks: {
                 orderBy: { sequence: "asc" },
-                select: { id: true, sequence: true, module: true, title: true },
+                select: {
+                  id: true,
+                  sequence: true,
+                  module: true,
+                  title: true,
+                  instructions: true,
+                  responseType: true,
+                  optionsJson: true,
+                  key: { select: { answerKey: true } },
+                },
               },
             },
           },
@@ -88,7 +98,7 @@ export default async function CandidateDetailPage({
         include: {
           interview: true,
           evaluations: true,
-          responses: { include: { task: { include: { key: true } } } },
+          responses: true,
           suggestions: true,
           gateReviews: true,
           taskMarks: true,
@@ -182,14 +192,12 @@ export default async function CandidateDetailPage({
             ? ` · paper v${invite.assessmentVersion.version}`
             : ""}
         </p>
-        {can(staff.role, "editAssessment") ? (
-          <Link
-            href={`/console/candidates/${candidate.id}/tasks`}
-            className="mt-4 inline-flex text-sm text-staff-accent"
-          >
-            View or customize this person’s tasks
-          </Link>
-        ) : null}
+        <Link
+          href={`/console/candidates/${candidate.id}/tasks`}
+          className="mt-4 inline-flex text-sm text-staff-accent"
+        >
+          View the full question paper sent to this person
+        </Link>
       </div>
 
       {inviteUrl && can(staff.role, "invite") ? (
@@ -230,27 +238,49 @@ export default async function CandidateDetailPage({
 
       {invite?.assessmentVersion.tasks.length ? (
         <CollapsibleList
-          title="Paper on this link"
-          summary={`${invite.assessmentVersion.tasks.length} tasks · closed by default · open only if you need the full list`}
+          title="Questions on this candidate’s test"
+          summary={`${invite.assessmentVersion.tasks.length} questions · staff preview only · the candidate does not see this list`}
         >
           <p className="mb-4 text-sm leading-6 text-staff-muted">
-            This copy stays as it was when the link was created. A later library import does not change it.
+            This is the exact paper on their invite link. It does not change if you update the
+            library later. Open it only if you need to check what they were sent.
           </p>
           <div className="space-y-4">
             {PAPER_PARTS.map((part) => {
               const tasks = invite.assessmentVersion.tasks.filter((task) => task.module === part.module);
               if (tasks.length === 0) return null;
+              const hasCommon = invite.assessmentVersion.tasks.some(
+                (task) => task.module !== "ROLE",
+              );
+              const label =
+                part.module === "ROLE" && !hasCommon ? "Tasks" : part.label;
               return (
                 <div key={part.module}>
                   <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">
-                    {part.label} · {tasks.length}
+                    {label} · {tasks.length}
                   </p>
-                  <ol className="mt-2 space-y-1 text-sm text-staff-text">
-                    {tasks.map((task) => (
-                      <li key={task.id}>
-                        {task.sequence}. {task.title}
-                      </li>
-                    ))}
+                  <ol className="mt-2 space-y-4">
+                    {tasks.map((task) => {
+                      const options = optionsText(task.optionsJson);
+                      return (
+                        <li key={task.id} className="text-sm">
+                          <p className="font-medium text-staff-strong">
+                            {task.sequence}. {task.title}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap leading-6 text-staff-body">
+                            {task.instructions}
+                          </p>
+                          {options ? (
+                            <p className="mt-1 whitespace-pre-wrap text-staff-muted">{options}</p>
+                          ) : null}
+                          {task.key?.answerKey ? (
+                            <p className="mt-1 text-staff-muted">
+                              Answer key: {task.key.answerKey}
+                            </p>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ol>
                 </div>
               );

@@ -2,6 +2,7 @@ import { prisma } from "./db";
 import { anthropicApiKey } from "./env";
 import { parseJson } from "./json";
 import { isAutoMarked } from "./module-score";
+import { refreshTestScore } from "./test-score";
 
 const MODEL = "claude-sonnet-5-5";
 
@@ -44,8 +45,14 @@ export async function saveClaudeDraft(attemptId: string, evaluatorId: string) {
   for (const mark of marks) {
     await prisma.taskMark.upsert({
       where: { attemptId_taskId: { attemptId, taskId: mark.taskId } },
-      create: { attemptId, taskId: mark.taskId, aiMark: mark.mark, aiReason: mark.reason },
-      update: { aiMark: mark.mark, aiReason: mark.reason },
+      create: {
+        attemptId,
+        taskId: mark.taskId,
+        mark: mark.mark,
+        aiMark: mark.mark,
+        aiReason: mark.reason,
+      },
+      update: { mark: mark.mark, aiMark: mark.mark, aiReason: mark.reason },
     });
   }
   const attempt = await prisma.attempt.findUnique({
@@ -77,6 +84,7 @@ export async function saveClaudeDraft(attemptId: string, evaluatorId: string) {
       },
     });
   }
+  await refreshTestScore(prisma, attemptId);
   return {
     overall: null,
     recommendation: null,

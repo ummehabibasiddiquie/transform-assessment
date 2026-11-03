@@ -44,6 +44,7 @@ export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
                     <Link
                       className="text-staff-strong hover:underline"
                       href={`/console/candidates/${candidate.id}`}
+                      prefetch={false}
                     >
                       {candidate.name}
                     </Link>
@@ -74,6 +75,7 @@ export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
                     <Link
                       className="text-staff-accent hover:underline"
                       href={`/console/candidates/${candidate.id}`}
+                      prefetch={false}
                     >
                       Open record
                     </Link>

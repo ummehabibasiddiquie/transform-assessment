@@ -7,7 +7,7 @@ export async function refreshTestScore(prisma: PrismaClient, attemptId: string) 
     where: { id: attemptId },
     include: {
       responses: { select: { taskId: true, contentJson: true } },
-      taskMarks: { select: { taskId: true, mark: true } },
+      taskMarks: { select: { taskId: true, mark: true, aiMark: true } },
       assessmentVersion: {
         include: {
           assessment: { select: { name: true } },

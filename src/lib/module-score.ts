@@ -12,7 +12,13 @@ type TaskRow = {
 
 type ResponseRow = { taskId: string; contentJson: string };
 
-export type MarkRow = { taskId: string; mark: number | null };
+export type MarkRow = { taskId: string; mark?: number | null; aiMark?: number | null };
+
+function appliedMark(row: MarkRow | undefined) {
+  if (row?.mark != null) return row.mark;
+  if (row?.aiMark != null) return row.aiMark;
+  return null;
+}
 
 export type ModuleScore = {
   label: string;
@@ -78,7 +84,7 @@ function scoreModule(
     if (response && responseHasAnswer(response.contentJson)) answered += 1;
     const matched = answerMatches(task.responseType, response?.contentJson ?? "{}", task.key?.answerKey ?? "");
     if (matched == null) {
-      const mark = marks.find((item) => item.taskId === task.id)?.mark;
+      const mark = appliedMark(marks.find((item) => item.taskId === task.id));
       if (mark != null) {
         marked += 1;
         manualPoints += mark;
