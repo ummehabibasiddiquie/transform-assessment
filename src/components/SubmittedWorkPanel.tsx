@@ -117,13 +117,28 @@ export function SubmittedWorkPanel({ tasks }: { tasks: TaskItem[] }) {
                     </button>
                     {taskOpen ? (
                       <div className="space-y-3 border-t border-staff-line px-4 py-4">
-                        <p className="whitespace-pre-wrap text-sm text-staff-muted">
-                          {task.instructions}
-                        </p>
+                        {task.instructions ? (
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium">
+                              Question
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap text-sm text-staff-body">
+                              {task.instructions}
+                            </p>
+                          </div>
+                        ) : null}
                         {task.answerKey ? (
-                          <p className="text-sm text-staff-accent">Evaluator key: {task.answerKey}</p>
+                          <div className="rounded border border-staff-accent/30 bg-staff-accent/5 p-2.5">
+                            <p className="text-xs uppercase tracking-[0.14em] text-staff-accent font-medium">
+                              Evaluator Key (Answer Key)
+                            </p>
+                            <p className="mt-1 text-sm text-staff-accent">{task.answerKey}</p>
+                          </div>
                         ) : null}
                         <div className="border-t border-staff-line pt-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium mb-2">
+                            Candidate Answer
+                          </p>
                           {task.contentJson ? (
                             <ResponseView
                               family={task.family}

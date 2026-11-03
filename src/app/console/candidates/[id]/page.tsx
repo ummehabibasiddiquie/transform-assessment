@@ -3,19 +3,27 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { recommendationLabel } from "@/lib/scoring";
-import { gateResults, scoreModules } from "@/lib/module-score";
+import {
+  gateResults,
+  isAutoMarked,
+  MARK_OPTIONS,
+  scoreModules,
+  testTotals,
+} from "@/lib/module-score";
 import { CollapsibleList } from "@/components/CollapsibleList";
+import { ResponseView } from "@/components/ResponseView";
 import { CopyLink } from "@/components/CopyLink";
 import { SubmittedWorkPanel } from "@/components/SubmittedWorkPanel";
 import {
   recordDecision,
+  resendInviteEmail,
   runAutoEvaluation,
   saveEvaluation,
-  saveGateReviews,
+  saveTaskMarks,
   saveInterview,
   saveUncertainties,
 } from "@/lib/actions";
-import { GATE_STATUSES, gateRules } from "@/lib/gates";
+import { gateRules, INTERVIEW_GATE_STATUSES } from "@/lib/gates";
 import { bandFor, bandsForRole } from "@/lib/bands";
 import { readEvidenceKeys } from "@/lib/competency-evidence";
 import { CompetencyEvidence } from "@/components/CompetencyEvidence";
@@ -23,8 +31,13 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { appUrl } from "@/lib/env";
 import { requireStaff } from "@/lib/access";
 import { can } from "@/lib/permissions";
+import { defaultCompleteByInput, HR_CONTACT_EMAIL } from "@/lib/invite-email";
 
 export const maxDuration = 60;
+
+function formatMarks(points: number) {
+  return Number.isInteger(points) ? String(points) : points.toFixed(1);
+}
 
 const PAPER_PARTS = [
   { module: "COMMON_APTITUDE", label: "Aptitude and reasoning" },
@@ -45,10 +58,10 @@ export default async function CandidateDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ auto?: string }>;
+  searchParams: Promise<{ auto?: string; mail?: string }>;
 }) {
   const { id } = await params;
-  const { auto = "" } = await searchParams;
+  const { auto = "", mail = "" } = await searchParams;
   const staff = await requireStaff("viewCandidates");
   const candidate = await prisma.candidate.findUnique({
     where: { id },
@@ -59,6 +72,7 @@ export default async function CandidateDetailPage({
         include: {
           assessmentVersion: {
             include: {
+              assessment: { select: { name: true } },
               tasks: {
                 orderBy: { sequence: "asc" },
                 select: { id: true, sequence: true, module: true, title: true },
@@ -77,6 +91,7 @@ export default async function CandidateDetailPage({
           responses: { include: { task: { include: { key: true } } } },
           suggestions: true,
           gateReviews: true,
+          taskMarks: true,
           assessmentVersion: {
             include: {
               tasks: { orderBy: { sequence: "asc" }, include: { key: true } },
@@ -117,10 +132,10 @@ export default async function CandidateDetailPage({
   const canScore = can(staff.role, "score");
   const gates = attempt
     ? await gateRules(
-        prisma,
-        attempt.assessmentVersion.criticalGates,
-        attempt.assessmentVersion.assessment.name,
-      )
+      prisma,
+      attempt.assessmentVersion.criticalGates,
+      attempt.assessmentVersion.assessment.name,
+    )
     : [];
   const failedGates = gates.filter((gate) =>
     attempt?.gateReviews.some((review) => review.gate === gate.name && review.status === "FAIL"),
@@ -129,8 +144,16 @@ export default async function CandidateDetailPage({
   const roleBands = attempt
     ? await bandsForRole(prisma, attempt.assessmentVersion.assessment.name)
     : null;
+  const totals = attempt
+    ? testTotals(attempt.assessmentVersion.tasks, attempt.responses, attempt.taskMarks)
+    : null;
   const systemBand =
-    attempt?.overallScore != null && roleBands ? bandFor(attempt.overallScore, roleBands.bands) : null;
+    totals?.complete && totals.percent != null && roleBands
+      ? bandFor(totals.percent, roleBands.bands)
+      : null;
+  const writtenTasks = attempt
+    ? attempt.assessmentVersion.tasks.filter((task) => !isAutoMarked(task))
+    : [];
   const evidenceKeys = readEvidenceKeys(
     await prisma.libraryConfig.findMany({ where: { kind: "EVIDENCE_KEY" } }),
   );
@@ -148,6 +171,11 @@ export default async function CandidateDetailPage({
           Candidate
         </p>
         <h1 className="mt-2 font-serif text-4xl text-staff-strong">{candidate.name}</h1>
+        {invite?.assessmentVersion ? (
+          <p className="mt-2 text-base text-staff-accent">
+            Role applied for: {invite.assessmentVersion.assessment.name}
+          </p>
+        ) : null}
         <p className="mt-2 text-sm text-staff-body">
           {candidate.email} · {candidate.status.replace("_", " ")}
           {invite?.assessmentVersion
@@ -166,11 +194,37 @@ export default async function CandidateDetailPage({
 
       {inviteUrl && can(staff.role, "invite") ? (
         <section className="rounded-lg border border-staff-line p-5">
-          <h2 className="font-serif text-xl text-staff-strong">Assessment link</h2>
+          <h2 className="font-serif text-xl text-staff-strong">Test invitation</h2>
           <p className="mt-2 mb-4 text-sm text-staff-muted">
-            Send this private link. It does not show scores or competencies.
+            The candidate is emailed this private link. It does not show scores
+            or competencies. Contact on the email is {HR_CONTACT_EMAIL}; they
+            are asked not to reply to the sending address.
           </p>
+          {mail === "sent" ? (
+            <p className="mb-4 text-sm text-staff-body">Invitation email sent to {candidate.email}.</p>
+          ) : null}
           <CopyLink url={inviteUrl} />
+          <form action={resendInviteEmail} className="mt-4 flex flex-wrap items-end gap-3">
+            <input type="hidden" name="candidateId" value={candidate.id} />
+            <label className="block space-y-1.5">
+              <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
+                Complete by (India time)
+              </span>
+              <input
+                name="completeBy"
+                type="datetime-local"
+                required
+                defaultValue={defaultCompleteByInput()}
+                className="rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-staff-strong outline-none focus:border-staff-accent"
+              />
+            </label>
+            <SubmitButton
+              pendingText="Sending…"
+              className="rounded-md bg-staff-accent px-4 py-2 text-sm font-medium text-staff-bg"
+            >
+              Send invitation email
+            </SubmitButton>
+          </form>
         </section>
       ) : null}
 
@@ -207,119 +261,74 @@ export default async function CandidateDetailPage({
 
       {attempt ? (
         <section className="grid gap-3 sm:grid-cols-3">
-          {Object.values(scoreModules(attempt.assessmentVersion.tasks, attempt.responses)).map(
-            (score) => (
-              <div key={score.label} className="rounded-lg border border-staff-line p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">{score.label}</p>
-                <p className="mt-1 font-serif text-3xl text-staff-strong">
-                  {score.percent == null ? "—" : `${score.percent}%`}
+          {Object.values(
+            scoreModules(attempt.assessmentVersion.tasks, attempt.responses, attempt.taskMarks),
+          ).map((score) => (
+            <div key={score.label} className="rounded-lg border border-staff-line p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">{score.label}</p>
+              <p className="mt-1 font-serif text-3xl text-staff-strong">
+                {formatMarks(score.points)} / {score.total}
+              </p>
+              {score.scored > 0 ? (
+                <p className="mt-1 text-sm text-staff-strong">
+                  Multiple choice: {score.correct} / {score.scored} correct
                 </p>
-                <p className="mt-1 text-xs text-staff-muted">
-                  {score.scored > 0
-                    ? `${score.correct} of ${score.scored} scored · ${score.total} tasks`
-                    : `${score.total} tasks for review`}
+              ) : null}
+              {score.manual > 0 ? (
+                <p
+                  className={`mt-1 text-sm ${score.marked < score.manual ? "text-staff-accent" : "text-staff-strong"}`}
+                >
+                  Written: {score.marked} of {score.manual} marked
                 </p>
-              </div>
-            ),
-          )}
+              ) : null}
+              <p className="mt-1 text-xs text-staff-muted">
+                Answered {score.answered} of {score.total} questions
+              </p>
+            </div>
+          ))}
         </section>
       ) : null}
 
-      {attempt && attempt.status === "SUBMITTED" && gates.length > 0 ? (
-        <section className="rounded-lg border border-staff-line p-5">
-          <h2 className="font-serif text-xl text-staff-strong">Critical gates</h2>
-          <p className="mt-2 text-sm text-staff-muted">
-            Mark each gate for this role. A failed gate is a warning for the hiring decision.
-            It does not record the decision.
+      {failedGates.length > 0 ? (
+        <div className="rounded-md border border-staff-accent p-4 text-sm text-staff-text">
+          <p className="font-medium text-staff-accent">
+            Critical gate failed: {failedGates.map((gate) => gate.name).join(", ")}
           </p>
-          {failedGates.length > 0 ? (
-            <div className="mt-4 rounded-md border border-staff-accent p-3 text-sm text-staff-text">
-              <p className="font-medium text-staff-accent">
-                Critical gate failed: {failedGates.map((gate) => gate.name).join(", ")}
+          {failedGates.map((gate) =>
+            gate.effect ? (
+              <p key={gate.name} className="mt-1 text-xs">
+                {gate.name}: workbook guidance is “{gate.effect}”.
               </p>
-              {failedGates.map((gate) =>
-                gate.effect ? (
-                  <p key={gate.name} className="mt-1">
-                    {gate.name}: workbook guidance is “{gate.effect}”.
-                  </p>
-                ) : null,
-              )}
-            </div>
-          ) : null}
-          {gateTasks.length > 0 ? (
-            <div className="mt-4 text-sm text-staff-body">
-              <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">
-                Tasks to check for these gates
-              </p>
-              <ul className="mt-1 space-y-1">
-                {gateTasks.map((task) => (
-                  <li key={task.title}>
-                    {task.title}: {task.status}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          <form action={saveGateReviews} className="mt-4 space-y-4">
-            <input type="hidden" name="attemptId" value={attempt.id} />
-            <input type="hidden" name="candidateId" value={candidate.id} />
-            <input type="hidden" name="gateCount" value={gates.length} />
-            {gates.map((gate, index) => {
-              const review = attempt.gateReviews.find((item) => item.gate === gate.name);
-              return (
-                <div key={gate.name} className="border-b border-staff-line pb-4">
-                  <input type="hidden" name={`gate-name-${index}`} value={gate.name} />
-                  <div className="flex flex-wrap items-baseline justify-between gap-3">
-                    <h3 className="text-staff-strong">{gate.name}</h3>
-                    <div className="flex gap-4 text-sm">
-                      {GATE_STATUSES.map((status) => (
-                        <label key={status.value} className="flex items-center gap-1.5">
-                          <input
-                            type="radio"
-                            name={`gate-status-${index}`}
-                            value={status.value}
-                            defaultChecked={review?.status === status.value}
-                            disabled={!canScore}
-                          />
-                          {status.label}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  {gate.trigger ? (
-                    <p className="mt-1 text-xs text-staff-muted">
-                      Fails when: {gate.trigger} · Guidance: {gate.effect}
-                    </p>
-                  ) : null}
-                  <input
-                    name={`gate-note-${index}`}
-                    defaultValue={review?.note}
-                    placeholder="Evidence, if Concern or Fail"
-                    disabled={!canScore}
-                    className="mt-2 w-full rounded-md border border-staff-line bg-staff-bg px-3 py-1.5 text-sm text-staff-text disabled:opacity-60"
-                  />
-                </div>
-              );
-            })}
-            {canScore ? (
-              <button className="rounded-md border border-staff-accent px-4 py-2 text-sm text-staff-accent">
-                Save gates
-              </button>
-            ) : null}
-          </form>
-        </section>
+            ) : null,
+          )}
+        </div>
       ) : null}
 
-      {attempt?.overallScore != null ? (
-        <section className="grid gap-3 sm:grid-cols-3">
+      {attempt && attempt.status === "SUBMITTED" && totals ? (
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-staff-line p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">Overall</p>
-            <p className="mt-1 font-serif text-3xl text-staff-strong">{attempt.overallScore}</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">
+              Overall test score
+            </p>
+            <p className="mt-1 font-serif text-3xl text-staff-strong">
+              {formatMarks(totals.points)} / {totals.total}
+            </p>
+            <p className="mt-1 text-sm text-staff-strong">
+              {totals.percent == null ? "—" : `${totals.percent}%`}
+            </p>
+            {totals.complete ? (
+              <p className="mt-1 text-xs text-staff-muted">All answers marked.</p>
+            ) : (
+              <p className="mt-1 text-xs text-staff-accent">
+                Not final: {totals.toMark} written {totals.toMark === 1 ? "answer" : "answers"} still
+                to mark below.
+              </p>
+            )}
           </div>
           <div className="rounded-lg border border-staff-line p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">System view</p>
             <p className="mt-1 font-serif text-2xl text-staff-strong">
-              {systemBand ? recommendationLabel(systemBand.recommendation) : "—"}
+              {systemBand ? recommendationLabel(systemBand.recommendation) : "Waiting for marking"}
             </p>
             {systemBand?.definition ? (
               <p className="mt-1 text-xs text-staff-body">{systemBand.definition}</p>
@@ -335,6 +344,19 @@ export default async function CandidateDetailPage({
                 A critical gate failed. The workbook says this can override the score.
               </p>
             ) : null}
+          </div>
+          <div className="rounded-lg border border-staff-line p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">
+              Competency rating
+            </p>
+            <p className="mt-1 font-serif text-3xl text-staff-strong">
+              {attempt.overallScore == null ? "—" : `${attempt.overallScore} / 100`}
+            </p>
+            <p className="mt-1 text-xs text-staff-muted">
+              {attempt.overallScore == null
+                ? "From the 1–5 competency scores, once saved."
+                : "From the 1–5 competency scores. Not part of the test score."}
+            </p>
           </div>
           <div className="rounded-lg border border-staff-line p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">Human decision</p>
@@ -368,12 +390,12 @@ export default async function CandidateDetailPage({
         <p className="text-sm text-staff-muted">The candidate has not started yet.</p>
       )}
 
-      {attempt && attempt.status === "SUBMITTED" && can(staff.role, "score") ? (
+      {attempt && attempt.status === "SUBMITTED" && canScore ? (
         <section className="rounded-lg border border-staff-line p-5">
-          <h2 className="font-serif text-2xl text-staff-strong">Score competencies</h2>
+          <h2 className="font-serif text-2xl text-staff-strong">Claude draft</h2>
           <p className="mt-2 text-sm text-staff-muted">
-            5 is exceptional, 3 is acceptable, 1 is poor. The overall score is calculated
-            from the role weights, not typed in by hand.
+            Claude suggests a mark for each written answer and a 1–5 score for each competency.
+            Nothing counts until you check the suggestions and save them below.
           </p>
           <form action={runAutoEvaluation} className="mt-4">
             <input type="hidden" name="attemptId" value={attempt.id} />
@@ -387,16 +409,137 @@ export default async function CandidateDetailPage({
           </form>
           {auto === "ok" ? (
             <p className="mt-3 text-sm text-staff-body">
-              Claude filled the score boxes below. Change anything that looks wrong, then save.
-              Saving records the human scores. It does not record Hire or No Hire.
+              Claude filled the marks and competency scores below. Change anything that looks
+              wrong, then save each section. It does not record Hire or No Hire.
             </p>
           ) : auto ? (
             <p className="mt-3 text-sm text-staff-accent">{auto}</p>
-          ) : (
-            <p className="mt-3 text-sm text-staff-muted">
-              Score with Claude fills the boxes from the answers. You can edit them, then save.
-            </p>
-          )}
+          ) : null}
+        </section>
+      ) : null}
+
+      {attempt && attempt.status === "SUBMITTED" && canScore && writtenTasks.length > 0 ? (
+        <section className="rounded-lg border border-staff-line p-5">
+          <h2 className="font-serif text-2xl text-staff-strong">Mark written answers</h2>
+          <p className="mt-2 text-sm text-staff-muted">
+            Multiple-choice answers are marked automatically. Mark each written answer against
+            its key: Correct is 1 mark, Partly is ½, Wrong is 0. These marks make up the overall
+            test score.
+          </p>
+          <form action={saveTaskMarks} className="mt-4 space-y-3">
+            <input type="hidden" name="attemptId" value={attempt.id} />
+            <input type="hidden" name="candidateId" value={candidate.id} />
+            {writtenTasks.map((task) => {
+              const saved = attempt.taskMarks.find((item) => item.taskId === task.id);
+              const response = attempt.responses.find((item) => item.taskId === task.id);
+              const current = saved?.mark ?? saved?.aiMark ?? null;
+              const fromClaude = saved?.mark == null && saved?.aiMark != null;
+              return (
+                <div key={task.id} className="rounded-md border border-staff-line p-3">
+                  <input type="hidden" name="taskId" value={task.id} />
+                  <div className="flex flex-wrap items-baseline justify-between gap-3">
+                    <p className="text-sm text-staff-strong">
+                      <span className="text-xs uppercase tracking-[0.14em] text-staff-muted">
+                        Task {task.sequence}
+                      </span>{" "}
+                      {task.title}
+                    </p>
+                    <div className="flex gap-4 text-sm">
+                      {MARK_OPTIONS.map((option) => (
+                        <label key={option.value} className="flex items-center gap-1.5">
+                          <input
+                            type="radio"
+                            name={`mark-${task.id}`}
+                            value={String(option.value)}
+                            defaultChecked={current === option.value}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mt-1 text-xs text-staff-muted">
+                    {saved?.mark != null
+                      ? "Marked"
+                      : fromClaude
+                        ? "Claude suggestion — not saved yet"
+                        : "Not marked yet"}
+                    {saved?.aiReason ? ` · Claude: ${saved.aiReason}` : ""}
+                  </p>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs text-staff-accent">
+                      Show question, answer and key
+                    </summary>
+                    <div className="mt-3 space-y-3 rounded-md border border-staff-line/60 bg-staff-bg/40 p-3 text-sm">
+                      {task.instructions ? (
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium">
+                            Question
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-staff-body">
+                            {task.instructions}
+                          </p>
+                        </div>
+                      ) : null}
+                      {task.referenceMaterial ? (
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium">
+                            Reference Material
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-xs text-staff-muted">
+                            {task.referenceMaterial}
+                          </p>
+                        </div>
+                      ) : null}
+                      {task.key?.answerKey ? (
+                        <div className="rounded border border-staff-accent/30 bg-staff-accent/5 p-2.5">
+                          <p className="text-xs uppercase tracking-[0.14em] text-staff-accent font-medium">
+                            Answer Key (Evaluation Guide)
+                          </p>
+                          <p className="mt-1 text-sm text-staff-accent">{task.key.answerKey}</p>
+                          {task.key.rubric ? (
+                            <p className="mt-1 text-xs text-staff-muted">{task.key.rubric}</p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium">
+                          Candidate Answer
+                        </p>
+                        <div className="mt-2">
+                          {response ? (
+                            <ResponseView
+                              family={task.family}
+                              contentJson={response.contentJson}
+                              resourceLogJson={response.resourceLogJson}
+                            />
+                          ) : (
+                            <p className="text-staff-muted italic">No response saved.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              );
+            })}
+            <SubmitButton
+              pendingText="Saving marks…"
+              className="rounded-md bg-staff-accent px-4 py-2.5 text-sm font-medium text-staff-bg"
+            >
+              Save marks
+            </SubmitButton>
+          </form>
+        </section>
+      ) : null}
+
+      {attempt && attempt.status === "SUBMITTED" && canScore ? (
+        <section className="rounded-lg border border-staff-line p-5">
+          <h2 className="font-serif text-2xl text-staff-strong">Score competencies</h2>
+          <p className="mt-2 text-sm text-staff-muted">
+            5 is exceptional, 3 is acceptable, 1 is poor. This gives the competency rating. It is
+            separate from the test score.
+          </p>
           <form action={saveEvaluation} className="mt-6 space-y-6">
             <input type="hidden" name="attemptId" value={attempt.id} />
             <input type="hidden" name="candidateId" value={candidate.id} />
@@ -483,53 +626,165 @@ export default async function CandidateDetailPage({
         </section>
       ) : null}
 
-      {attempt?.overallScore != null &&
-      (can(staff.role, "interview") || can(staff.role, "decide")) ? (
-        <section className="grid gap-6 lg:grid-cols-2">
+      {attempt?.status === "SUBMITTED" &&
+        (can(staff.role, "interview") || can(staff.role, "decide")) ? (
+        <section className="space-y-6">
           {can(staff.role, "interview") ? (
-            <div className="rounded-lg border border-staff-line p-5">
-              <h2 className="font-serif text-2xl text-staff-strong">Interview notes</h2>
-              <p className="mt-2 mb-4 text-sm text-staff-muted">
-                Do not repeat the assessment. Use these to check remaining uncertainty.
-              </p>
+            <div className="rounded-lg border border-staff-line p-6">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="font-serif text-2xl text-staff-strong">Interview evaluation</h2>
+                <p className="text-xs text-staff-muted">
+                  Check critical gates and record interview observations in one place.
+                </p>
+              </div>
+
               {attempt.uncertainties ? (
-                <div className="mb-4 rounded-md border border-staff-line p-3 text-sm">
-                  <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">
-                    Still unclear from the test
+                <div className="mt-4 rounded-md border border-staff-line bg-staff-bg/50 p-4 text-sm">
+                  <p className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium">
+                    Still unclear from the written test
                   </p>
                   <p className="mt-1 whitespace-pre-wrap text-staff-text">{attempt.uncertainties}</p>
                 </div>
               ) : null}
-              <ul className="mb-4 list-disc space-y-2 pl-5 text-sm text-staff-body">
-                {focusProbes.map((probe) => (
-                  <li key={probe}>{probe}</li>
-                ))}
-              </ul>
-              <form action={saveInterview} className="space-y-3">
+
+              <form action={saveInterview} className="mt-6 space-y-6">
                 <input type="hidden" name="attemptId" value={attempt.id} />
                 <input type="hidden" name="candidateId" value={candidate.id} />
-                <textarea
-                  name="probesUsed"
-                  defaultValue={attempt.interview?.probesUsed}
-                  placeholder="Which probes you actually used"
-                  rows={2}
-                  className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm"
-                />
-                <textarea
-                  name="notes"
-                  defaultValue={attempt.interview?.notes}
-                  placeholder="Interview notes"
-                  rows={5}
-                  className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm"
-                />
-                <button className="rounded-md border border-staff-accent px-4 py-2 text-sm text-staff-accent">
+                <input type="hidden" name="gateCount" value={gates.length} />
+
+                {/* Critical Gates */}
+                {gates.length > 0 ? (
+                  <div className="rounded-md border border-staff-line/60 bg-staff-bg/30 p-4 space-y-4">
+                    <div>
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 className="text-base font-medium text-staff-strong">
+                          Critical gates check
+                        </h3>
+                        <span className="text-xs uppercase tracking-[0.14em] text-staff-muted">
+                          {gates.length} {gates.length === 1 ? "gate" : "gates"} to verify
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-staff-muted">
+                        Evaluate core behaviors (integrity, safety, verification, ownership). A failed gate flags a critical warning for the hiring decision.
+                      </p>
+                      {gateTasks.length > 0 ? (
+                        <p className="mt-2 text-xs text-staff-muted">
+                          <span className="font-medium text-staff-body">Relevant test tasks:</span>{" "}
+                          {gateTasks.map((task) => `${task.title} (${task.status})`).join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-4 pt-1">
+                      {gates.map((gate, index) => {
+                        const review = attempt.gateReviews.find((item) => item.gate === gate.name);
+                        return (
+                          <div key={gate.name} className="border-b border-staff-line/60 pb-4 last:border-b-0 last:pb-0">
+                            <input type="hidden" name={`gate-name-${index}`} value={gate.name} />
+                            <div className="flex flex-wrap items-baseline justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-staff-strong">{gate.name}</h4>
+                                {review?.status ? (
+                                  <span
+                                    className={`rounded px-2 py-0.5 text-xs font-medium ${review.status === "PASS"
+                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                      : review.status === "FAIL"
+                                        ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                      }`}
+                                  >
+                                    {review.status}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-staff-muted">Not marked</span>
+                                )}
+                              </div>
+                              <div className="flex gap-4 text-sm">
+                                {INTERVIEW_GATE_STATUSES.map((status) => (
+                                  <label key={status.value} className="flex items-center gap-1.5 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`gate-status-${index}`}
+                                      value={status.value}
+                                      defaultChecked={review?.status === status.value}
+                                    />
+                                    {status.label}
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                            {gate.trigger ? (
+                              <p className="mt-1 text-xs text-staff-muted">
+                                Fails when: {gate.trigger}
+                                {gate.effect ? ` · Guidance: ${gate.effect}` : ""}
+                              </p>
+                            ) : null}
+                            <input
+                              name={`gate-note-${index}`}
+                              defaultValue={review?.note}
+                              placeholder="What the interview showed / notes on this gate"
+                              className="mt-2 w-full rounded-md border border-staff-line bg-staff-bg px-3 py-1.5 text-sm text-staff-text"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Interview Notes & Probes */}
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-base font-medium text-staff-strong">
+                      Interview discussion & notes
+                    </h3>
+                    <p className="mt-1 text-xs text-staff-muted">
+                      Recommended probes to check remaining uncertainty:
+                    </p>
+                    <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-staff-body">
+                      {focusProbes.map((probe) => (
+                        <li key={probe}>{probe}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium">
+                      Probes used
+                    </label>
+                    <textarea
+                      name="probesUsed"
+                      defaultValue={attempt.interview?.probesUsed}
+                      placeholder="Which probes you actually used in the conversation"
+                      rows={2}
+                      className="mt-1 w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-text"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium">
+                      Interview notes & observations
+                    </label>
+                    <textarea
+                      name="notes"
+                      defaultValue={attempt.interview?.notes}
+                      placeholder="Overall interview notes, candidate depth, and observations"
+                      rows={5}
+                      className="mt-1 w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-text"
+                    />
+                  </div>
+                </div>
+
+                <button className="rounded-md bg-staff-accent px-5 py-2.5 text-sm font-medium text-staff-bg hover:opacity-90 transition-opacity">
                   Save interview
                 </button>
               </form>
             </div>
           ) : null}
+
+          {/* Final decision */}
           {can(staff.role, "decide") || candidate.decisions[0] ? (
-            <div className="rounded-lg border border-staff-line p-5">
+            <div className="rounded-lg border border-staff-line p-6">
               <h2 className="font-serif text-2xl text-staff-strong">Final decision</h2>
               <p className="mt-2 mb-4 text-sm text-staff-muted">
                 The score is a view, not the decision. Record the outcome and why.
@@ -545,31 +800,41 @@ export default async function CandidateDetailPage({
                   </p>
                 </div>
               ) : can(staff.role, "decide") ? (
-                <form action={recordDecision} className="space-y-3">
+                <form action={recordDecision} className="space-y-4">
                   <input type="hidden" name="attemptId" value={attempt.id} />
                   <input type="hidden" name="candidateId" value={candidate.id} />
-                  <select
-                    name="outcome"
-                    required
-                    className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      Choose outcome
-                    </option>
-                    <option value="STRONG_HIRE">Strong Hire</option>
-                    <option value="HIRE">Hire</option>
-                    <option value="HOLD">Hold / Further Check</option>
-                    <option value="NO_HIRE">No Hire</option>
-                  </select>
-                  <textarea
-                    name="rationale"
-                    required
-                    placeholder="Why this decision, including remaining risks"
-                    rows={5}
-                    className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm"
-                  />
-                  <button className="rounded-md bg-staff-strong px-4 py-2.5 text-sm font-medium text-staff-bg">
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium">
+                      Outcome
+                    </label>
+                    <select
+                      name="outcome"
+                      required
+                      className="mt-1 w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-text"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>
+                        Choose outcome
+                      </option>
+                      <option value="STRONG_HIRE">Strong Hire</option>
+                      <option value="HIRE">Hire</option>
+                      <option value="HOLD">Hold / Further Check</option>
+                      <option value="NO_HIRE">No Hire</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.14em] text-staff-muted font-medium">
+                      Decision rationale & remaining risks
+                    </label>
+                    <textarea
+                      name="rationale"
+                      required
+                      placeholder="Why this decision, including remaining risks"
+                      rows={5}
+                      className="mt-1 w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-text"
+                    />
+                  </div>
+                  <button className="rounded-md bg-staff-strong px-5 py-2.5 text-sm font-medium text-staff-bg hover:opacity-90 transition-opacity">
                     Record decision
                   </button>
                 </form>

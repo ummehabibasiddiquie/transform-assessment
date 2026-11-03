@@ -7,8 +7,9 @@ export type CandidateRow = {
   email: string;
   status: string;
   createdAt: Date;
-  attempts: { overallScore: number | null; recommendation: string | null }[];
+  attempts: { testScore: number | null; status: string; recommendation: string | null }[];
   decisions: { outcome: string }[];
+  invites: { assessmentVersion: { assessment: { name: string } } }[];
 };
 
 export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
@@ -18,8 +19,9 @@ export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
         <thead className="border-b border-staff-line text-xs uppercase tracking-[0.14em] text-staff-muted">
           <tr>
             <th className="px-4 py-3 font-medium">Name</th>
+            <th className="px-4 py-3 font-medium">Role applied for</th>
             <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Score</th>
+            <th className="px-4 py-3 font-medium">Test score</th>
             <th className="px-4 py-3 font-medium">System view</th>
             <th className="px-4 py-3 font-medium">Decision</th>
             <th className="px-4 py-3 font-medium">Opened</th>
@@ -28,7 +30,7 @@ export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
         <tbody>
           {candidates.length === 0 ? (
             <tr>
-              <td className="px-4 py-8 text-staff-muted" colSpan={6}>
+              <td className="px-4 py-8 text-staff-muted" colSpan={7}>
                 No candidates match this view.
               </td>
             </tr>
@@ -48,10 +50,17 @@ export function CandidateTable({ candidates }: { candidates: CandidateRow[] }) {
                     <p className="text-xs text-staff-muted">{candidate.email}</p>
                   </td>
                   <td className="px-4 py-3 text-staff-body">
+                    {candidate.invites[0]?.assessmentVersion.assessment.name ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-staff-body">
                     {candidateStatusLabel(candidate.status)}
                   </td>
                   <td className="px-4 py-3">
-                    {attempt?.overallScore == null ? "—" : `${attempt.overallScore}`}
+                    {attempt?.testScore != null
+                      ? `${attempt.testScore}%`
+                      : attempt?.status === "SUBMITTED"
+                        ? "To mark"
+                        : "—"}
                   </td>
                   <td className="px-4 py-3">
                     {attempt?.recommendation

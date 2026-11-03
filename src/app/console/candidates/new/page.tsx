@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/access";
 import { PaperChoice } from "@/components/PaperChoice";
 import { SubmitButton } from "@/components/SubmitButton";
+import { defaultCompleteByInput, HR_CONTACT_EMAIL } from "@/lib/invite-email";
+import { mailConfigured } from "@/lib/mail";
 
 export const maxDuration = 60;
 
@@ -41,10 +43,23 @@ export default async function InvitePage() {
       </p>
       <h1 className="mt-2 font-serif text-4xl text-staff-strong">Invite a candidate</h1>
         <p className="mt-4 text-sm leading-6 text-staff-body">
-        After you save, copy the private link. Choose a role and level and the
-        system builds that paper: shared aptitude, shared problem solving, then
-        that role’s questions. A paper already sent does not change later.
+        After you save, the candidate is emailed the test link. Choose a role
+        and level and the system builds that paper: shared aptitude, shared
+        problem solving, then that role’s questions. A paper already sent does
+        not change later.
       </p>
+      {mailConfigured() ? (
+        <p className="mt-3 text-sm text-staff-muted">
+          The invitation tells them not to reply to the sending address, and to
+          contact {HR_CONTACT_EMAIL} instead.
+        </p>
+      ) : (
+        <p className="mt-3 text-sm text-staff-accent">
+          SMTP is not set, so the invite will still be created but the email
+          will not send. Add SMTP_HOST, SMTP_USER, and SMTP_PASS, then use Send
+          invitation email on the candidate record.
+        </p>
+      )}
       <form action={inviteCandidate} className="mt-8 space-y-5">
         <label className="block space-y-1.5">
           <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
@@ -67,6 +82,18 @@ export default async function InvitePage() {
             className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2.5 text-staff-strong outline-none focus:border-staff-accent"
           />
         </label>
+        <label className="block space-y-1.5">
+          <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">
+            Complete by (India time)
+          </span>
+          <input
+            name="completeBy"
+            type="datetime-local"
+            required
+            defaultValue={defaultCompleteByInput()}
+            className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2.5 text-staff-strong outline-none focus:border-staff-accent"
+          />
+        </label>
         <PaperChoice
           tracks={tracks.map((track) => ({
             value: track.code,
@@ -81,7 +108,7 @@ export default async function InvitePage() {
           pendingText="Building the paper…"
           className="rounded-md bg-staff-accent px-4 py-2.5 text-sm font-medium text-staff-bg"
         >
-          Create assessment link
+          Send invitation email
         </SubmitButton>
         {fixedPapers.length === 0 && tracks.length === 0 ? (
           <p className="text-sm text-staff-accent">

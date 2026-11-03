@@ -13,6 +13,11 @@ export default async function ConsoleHome() {
       include: {
         attempts: { orderBy: { startedAt: "desc" }, take: 1 },
         decisions: { orderBy: { createdAt: "desc" }, take: 1 },
+        invites: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { assessmentVersion: { select: { assessment: { select: { name: true } } } } },
+        },
       },
     }),
   ]);
@@ -22,7 +27,7 @@ export default async function ConsoleHome() {
   const awaiting = candidates.filter((c) => c.status === "COMPLETED");
   const decided = candidates.filter((c) => c.status === "DECIDED").length;
   const scored = candidates
-    .map((c) => c.attempts[0]?.overallScore)
+    .map((c) => c.attempts[0]?.testScore)
     .filter((score): score is number => typeof score === "number");
   const average =
     scored.length > 0
@@ -34,7 +39,7 @@ export default async function ConsoleHome() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">
-            Operations Executive
+            All roles
           </p>
           <h1 className="mt-2 font-serif text-4xl text-staff-strong">Dashboard</h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-staff-body">
@@ -62,7 +67,7 @@ export default async function ConsoleHome() {
         <Stat label="Active roles" value={String(roles)} />
         <Stat label="Published papers" value={String(publishedVersions)} />
         <Stat label="Awaiting review" value={String(awaiting.length)} />
-        <Stat label="Average score" value={average == null ? "—" : `${average}`} />
+        <Stat label="Average test score" value={average == null ? "—" : `${average}%`} />
       </section>
 
       <section className="grid gap-3 sm:grid-cols-4">

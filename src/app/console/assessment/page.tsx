@@ -143,7 +143,7 @@ export default async function AssessmentContentPage() {
         {working?.tasks.map((task) => (
           <article key={task.id} className="rounded-lg border border-staff-line p-5">
             <p className="text-xs uppercase tracking-[0.16em] text-staff-muted">
-              Slot {task.sequence} · {task.family}
+              Task {task.sequence} · {task.family}
             </p>
             <h3 className="mt-1 font-serif text-xl text-staff-strong">{task.title}</h3>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-staff-body">

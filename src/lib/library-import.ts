@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import * as XLSX from "xlsx";
 import { LIBRARY_VERSION, type ContentBank } from "./library";
+import { importQuestionSheet, isQuestionWorkbook } from "./question-sheet";
 import { syncV4Bank } from "./v4-sync";
 
 type Row = Record<string, string>;
@@ -97,11 +98,54 @@ async function replaceContent(
   return created;
 }
 
+async function importUpdatedQuestionLibrary(
+  prisma: PrismaClient,
+  buffer: Buffer,
+  meta: { fileName: string; importedById?: string },
+): Promise<ImportSummary> {
+  await prisma.bankItem.deleteMany();
+  const result = await importQuestionSheet(prisma, buffer, "replace");
+  const tracks = await prisma.assessmentTrack.findMany({
+    include: { items: { where: { status: "APPROVED", module: "ROLE" }, select: { id: true } } },
+  });
+  for (const track of tracks) {
+    await prisma.assessmentTrack.update({
+      where: { id: track.id },
+      data: { status: track.items.length > 0 ? "ACTIVE" : "INACTIVE" },
+    });
+  }
+  const counts: Record<string, number> = {
+    roles: await prisma.assessmentTrack.count({ where: { status: "ACTIVE" } }),
+    bankItems: await prisma.bankItem.count({ where: { status: "APPROVED" } }),
+    created: result.created,
+    updated: result.updated,
+  };
+  const summary: ImportSummary = {
+    libraryVersion: LIBRARY_VERSION,
+    fileName: meta.fileName,
+    counts,
+    errors: result.errors,
+  };
+  await prisma.libraryImport.create({
+    data: {
+      libraryVersion: LIBRARY_VERSION,
+      fileName: meta.fileName,
+      summaryJson: JSON.stringify(summary),
+      importedById: meta.importedById ?? null,
+    },
+  });
+  return summary;
+}
+
 export async function importContentLibrary(
   prisma: PrismaClient,
   buffer: Buffer,
   meta: { fileName: string; importedById?: string },
 ): Promise<ImportSummary> {
+  if (isQuestionWorkbook(buffer)) {
+    return importUpdatedQuestionLibrary(prisma, buffer, meta);
+  }
+
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const errors: string[] = [];
   const counts: Record<string, number> = {};

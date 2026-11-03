@@ -27,3 +27,14 @@ export function anthropicApiKey() {
   if (!value) throw new Error("ANTHROPIC_API_KEY is not set");
   return value;
 }
+
+export function smtpConfig() {
+  return {
+    host: runtimeEnv(["SMTP", "HOST"])?.trim() || "",
+    port: runtimeEnv(["SMTP", "PORT"])?.trim() || "587",
+    user: runtimeEnv(["SMTP", "USER"])?.trim() || "",
+    pass: runtimeEnv(["SMTP", "PASS"])?.trim() || "",
+    from: runtimeEnv(["MAIL", "FROM"])?.trim() || "",
+    fromName: runtimeEnv(["SMTP", "FROM", "NAME"])?.trim() || "Transform Solution",
+  };
+}

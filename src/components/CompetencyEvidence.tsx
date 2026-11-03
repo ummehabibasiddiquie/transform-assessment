@@ -9,6 +9,7 @@ type Task = {
   id: string;
   sequence: number;
   title: string;
+  instructions?: string;
   family: string;
   competencyName: string;
   key: { answerKey: string; rubric: string; evidence: string } | null;
@@ -62,6 +63,11 @@ export function CompetencyEvidence({
                     Task {task.sequence}
                   </p>
                   <p className="text-staff-strong">{task.title}</p>
+                  {task.instructions ? (
+                    <p className="mt-1 text-xs text-staff-body whitespace-pre-wrap">
+                      <span className="font-medium text-staff-muted">Question:</span> {task.instructions}
+                    </p>
+                  ) : null}
                   {task.key?.answerKey ? (
                     <p className="mt-1 text-xs text-staff-accent">Key: {task.key.answerKey}</p>
                   ) : null}

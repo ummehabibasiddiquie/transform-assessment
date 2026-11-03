@@ -1,4 +1,4 @@
-export const LIBRARY_VERSION = "V4";
+export const LIBRARY_VERSION = "Updated V1";
 
 export const CONTENT_BANKS = [
   "OBJECTIVE",

@@ -1,6 +1,7 @@
 "use server";
 
 import { randomBytes } from "crypto";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
@@ -13,9 +14,18 @@ import {
 import { assembleTrackPaper } from "@/lib/assemble";
 import { saveClaudeDraft } from "@/lib/auto-evaluate";
 import { weightedScore } from "@/lib/scoring";
-import { bandFor, bandsForRole } from "@/lib/bands";
+import { refreshTestScore } from "@/lib/test-score";
 import { requireStaff } from "@/lib/access";
 import { homePath, STAFF_ROLES, type StaffRole } from "@/lib/permissions";
+import { appUrl } from "@/lib/env";
+import { sendMail } from "@/lib/mail";
+import {
+  formatCompleteBy,
+  formatDuration,
+  inviteEmailHtml,
+  inviteEmailSubject,
+  inviteEmailText,
+} from "@/lib/invite-email";
 
 export async function loginStaff(formData: FormData) {
   const email = String(formData.get("email") ?? "")
@@ -77,8 +87,12 @@ export async function inviteCandidate(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const trackCode = String(formData.get("trackCode") ?? "").trim();
   const requestedVersionId = String(formData.get("assessmentVersionId") ?? "");
+  const completeBy = String(formData.get("completeBy") ?? "").trim();
   if (!name || !email) {
     throw new Error("Name and email are required.");
+  }
+  if (!completeBy) {
+    throw new Error("Set the date and time the candidate should complete the test by.");
   }
 
   const assessmentVersion = trackCode
@@ -101,14 +115,82 @@ export async function inviteCandidate(formData: FormData) {
       token,
     },
   });
+  const mail = await sendInviteMail({
+    candidateId: candidate.id,
+    completeBy,
+  });
   await audit({
     actorId: staff.userId,
     action: "INVITE_CANDIDATE",
     entity: "Candidate",
     entityId: candidate.id,
-    metadata: { inviteId: invite.id, email },
+    metadata: { inviteId: invite.id, email, mail: mail.status },
   });
-  redirect(`/console/candidates/${candidate.id}`);
+  redirect(
+    mail.status === "sent"
+      ? `/console/candidates/${candidate.id}?mail=sent`
+      : `/console/candidates/${candidate.id}`,
+  );
+}
+
+export async function resendInviteEmail(formData: FormData) {
+  await requireStaff("invite");
+  const candidateId = String(formData.get("candidateId") ?? "");
+  const completeBy = String(formData.get("completeBy") ?? "").trim();
+  if (!candidateId || !completeBy) {
+    throw new Error("Set the date and time the candidate should complete the test by.");
+  }
+  const mail = await sendInviteMail({ candidateId, completeBy });
+  redirect(
+    mail.status === "sent"
+      ? `/console/candidates/${candidateId}?mail=sent`
+      : `/console/candidates/${candidateId}`,
+  );
+}
+
+async function sendInviteMail({
+  candidateId,
+  completeBy,
+}: {
+  candidateId: string;
+  completeBy: string;
+}) {
+  const candidate = await prisma.candidate.findUnique({
+    where: { id: candidateId },
+    include: {
+      invites: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: {
+          assessmentVersion: { include: { assessment: true } },
+        },
+      },
+    },
+  });
+  const invite = candidate?.invites[0];
+  if (!candidate || !invite) {
+    throw new Error("Invite this candidate first.");
+  }
+  const testLink = `${appUrl(await headers())}/a/${invite.token}`;
+  const fields = {
+    candidateName: candidate.name,
+    roleName: invite.assessmentVersion.assessment.name,
+    testLink,
+    completeBy: formatCompleteBy(completeBy),
+    duration: formatDuration(invite.assessmentVersion.assessment.durationMin),
+  };
+  try {
+    await sendMail({
+      to: candidate.email,
+      subject: inviteEmailSubject(fields.roleName),
+      text: inviteEmailText(fields),
+      html: inviteEmailHtml(fields),
+    });
+    return { status: "sent" as const };
+  } catch (error) {
+    console.error("Invitation email was not sent.", error);
+    return { status: "failed" as const };
+  }
 }
 
 export async function startAttempt(token: string) {
@@ -179,6 +261,7 @@ export async function submitAttempt(token: string) {
     where: { id: invite.candidateId },
     data: { status: "COMPLETED" },
   });
+  await refreshTestScore(prisma, attempt.id);
   await audit({
     action: "SUBMIT_ATTEMPT",
     entity: "Attempt",
@@ -279,11 +362,9 @@ export async function saveEvaluation(formData: FormData) {
   }
 
   const overall = weightedScore(ratings);
-  const roleBands = await bandsForRole(prisma, attempt.assessmentVersion.assessment.name);
-  const recommendation = bandFor(overall, roleBands.bands).recommendation;
   await prisma.attempt.update({
     where: { id: attemptId },
-    data: { overallScore: overall, recommendation },
+    data: { overallScore: overall },
   });
   await prisma.candidate.update({
     where: { id: candidateId },
@@ -294,7 +375,7 @@ export async function saveEvaluation(formData: FormData) {
     action: "SAVE_EVALUATION",
     entity: "Attempt",
     entityId: attemptId,
-    metadata: { overall, recommendation },
+    metadata: { overall },
   });
   redirect(`/console/candidates/${candidateId}`);
 }
@@ -315,6 +396,10 @@ export async function saveInterview(formData: FormData) {
     },
     update: { notes, probesUsed, interviewerId: staff.userId },
   });
+  const gateCount = Number(formData.get("gateCount") ?? 0);
+  if (gateCount > 0) {
+    await writeGateReviews(formData, staff.userId, ["PASS", "CONCERN", "FAIL"]);
+  }
   await audit({
     actorId: staff.userId,
     action: "SAVE_INTERVIEW",
@@ -324,25 +409,83 @@ export async function saveInterview(formData: FormData) {
   redirect(`/console/candidates/${candidateId}`);
 }
 
-export async function saveGateReviews(formData: FormData) {
+export async function saveTaskMarks(formData: FormData) {
   const staff = await requireStaff("score");
   const attemptId = String(formData.get("attemptId") ?? "");
   const candidateId = String(formData.get("candidateId") ?? "");
+  const attempt = await prisma.attempt.findUnique({
+    where: { id: attemptId },
+    select: { assessmentVersionId: true },
+  });
+  if (!attempt) throw new Error("Attempt not found.");
+  const taskIds = formData.getAll("taskId").map(String);
+  const tasks = await prisma.task.findMany({
+    where: { id: { in: taskIds }, assessmentVersionId: attempt.assessmentVersionId },
+    select: { id: true },
+  });
+  for (const task of tasks) {
+    const raw = String(formData.get(`mark-${task.id}`) ?? "");
+    if (!["1", "0.5", "0"].includes(raw)) continue;
+    const mark = Number(raw);
+    await prisma.taskMark.upsert({
+      where: { attemptId_taskId: { attemptId, taskId: task.id } },
+      create: { attemptId, taskId: task.id, mark, evaluatorId: staff.userId },
+      update: { mark, evaluatorId: staff.userId },
+    });
+  }
+  const totals = await refreshTestScore(prisma, attemptId);
+  await audit({
+    actorId: staff.userId,
+    action: "SAVE_TASK_MARKS",
+    entity: "Attempt",
+    entityId: attemptId,
+    metadata: { points: totals?.points, total: totals?.total, toMark: totals?.toMark },
+  });
+  redirect(`/console/candidates/${candidateId}`);
+}
+
+async function writeGateReviews(formData: FormData, reviewerId: string, allowed: string[]) {
+  const attemptId = String(formData.get("attemptId") ?? "");
   const count = Number(formData.get("gateCount") ?? 0);
   for (let index = 0; index < count; index += 1) {
     const gate = String(formData.get(`gate-name-${index}`) ?? "").trim();
     const status = String(formData.get(`gate-status-${index}`) ?? "");
     const note = String(formData.get(`gate-note-${index}`) ?? "").trim();
-    if (!gate || !["PASS", "CONCERN", "FAIL"].includes(status)) continue;
+    if (!gate || !allowed.includes(status)) continue;
     await prisma.gateReview.upsert({
       where: { attemptId_gate: { attemptId, gate } },
-      create: { attemptId, gate, status, note, reviewerId: staff.userId },
-      update: { status, note, reviewerId: staff.userId },
+      create: { attemptId, gate, status, note, reviewerId },
+      update: { status, note, reviewerId },
     });
   }
+  return attemptId;
+}
+
+export async function saveGateReviews(formData: FormData) {
+  const staff = await requireStaff("score");
+  const candidateId = String(formData.get("candidateId") ?? "");
+  const attemptId = await writeGateReviews(formData, staff.userId, [
+    "PASS",
+    "CONCERN",
+    "FAIL",
+    "INTERVIEW",
+  ]);
   await audit({
     actorId: staff.userId,
     action: "SAVE_GATE_REVIEWS",
+    entity: "Attempt",
+    entityId: attemptId,
+  });
+  redirect(`/console/candidates/${candidateId}`);
+}
+
+export async function saveInterviewGates(formData: FormData) {
+  const staff = await requireStaff("interview");
+  const candidateId = String(formData.get("candidateId") ?? "");
+  const attemptId = await writeGateReviews(formData, staff.userId, ["PASS", "CONCERN", "FAIL"]);
+  await audit({
+    actorId: staff.userId,
+    action: "SAVE_INTERVIEW_GATES",
     entity: "Attempt",
     entityId: attemptId,
   });

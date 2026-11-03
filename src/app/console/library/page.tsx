@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/access";
 import { importLibraryFile } from "@/lib/library-actions";
 import { BANK_LABELS, type ContentBank } from "@/lib/library";
 import { SubmitButton } from "@/components/SubmitButton";
+import { ConfirmForm } from "@/components/ConfirmForm";
 
 export const maxDuration = 60;
 
@@ -37,31 +38,42 @@ export default async function LibraryPage({
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">V4 question bank</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">Question bank</p>
         <h1 className="mt-2 font-serif text-4xl text-staff-strong">Content library</h1>
         <p className="mt-3 text-sm leading-6 text-staff-body">
-          Import the V4 workbook. Questions are stored in the database. When you
-          invite a candidate, choose a role and level and the paper is built from
-          this library.
+          The uploaded Excel is stored in this system. Staff can open every role’s questions
+          here, download the current library, or upload a replacement file. When you invite a
+          candidate, the paper is built from this bank.
         </p>
       </div>
 
       {query.error ? <p className="text-sm text-staff-accent">{query.error}</p> : null}
       {query.imported ? (
-        <p className="text-sm text-staff-muted">Library imported. Review the counts below.</p>
+        <p className="text-sm text-staff-muted">Library imported. Open the questions below to review them.</p>
       ) : null}
-      <p className="text-sm">
-        <Link href="/console/library/configure" className="text-staff-accent">
-          Add a role and its questions from Excel
+      <div className="flex flex-wrap gap-3 text-sm">
+        <Link
+          href="/console/library/questions"
+          className="rounded-md bg-staff-accent px-4 py-2 font-medium text-staff-bg"
+        >
+          View questions by role
         </Link>
-      </p>
+        <a
+          href="/console/library/question-template?role=ALL"
+          className="rounded-md border border-staff-line px-4 py-2 text-staff-strong"
+        >
+          Download current library Excel
+        </a>
+        <Link href="/console/library/configure" className="rounded-md border border-staff-line px-4 py-2 text-staff-strong">
+          Upload or replace from Excel
+        </Link>
+      </div>
 
       <section className="rounded-lg border border-staff-line p-5">
         <h2 className="font-serif text-2xl text-staff-strong">Import master workbook</h2>
         <p className="mt-2 text-sm leading-6 text-staff-body">
-          Use the full V4 master workbook (the TRANSFORM Master Assessment Content
-          Library .xlsx file). Candidates who already have a link keep the paper
-          they were sent.
+          Use the updated question library Excel (role sheets plus COMMON).
+          Candidates who already have a link keep the paper they were sent.
         </p>
         <div className="mt-3 rounded-md border border-staff-accent p-3 text-sm leading-6 text-staff-text">
           <p className="font-medium text-staff-accent">This replaces the whole library.</p>
@@ -74,7 +86,13 @@ export default async function LibraryPage({
             instead.
           </p>
         </div>
-        <form action={importLibraryFile} className="mt-4 flex flex-wrap items-center gap-3">
+        <ConfirmForm
+          action={importLibraryFile}
+          message={
+            "Replace the whole library?\n\nAll roles and questions will be reloaded from this file. Questions added or changed through Excel uploads will be lost.\n\nPapers already sent are not affected.\n\nClick OK to replace everything, or Cancel to stop."
+          }
+          className="mt-4 flex flex-wrap items-center gap-3"
+        >
           <input
             type="file"
             name="file"
@@ -88,7 +106,7 @@ export default async function LibraryPage({
           >
             Import library
           </SubmitButton>
-        </form>
+        </ConfirmForm>
         {latest ? (
           <p className="mt-3 text-xs uppercase tracking-[0.14em] break-all text-staff-muted">
             Last import: {latest.fileName} · {latest.importedAt.toLocaleString()} · {latest.libraryVersion}
@@ -99,14 +117,14 @@ export default async function LibraryPage({
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2">
-        <Link className="rounded-lg border border-staff-line p-4 hover:bg-staff-hover" href="/console/library/configure">
+        <Link className="rounded-lg border border-staff-line p-4 hover:bg-staff-hover" href="/console/library/questions">
           <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">Roles and levels you can invite</p>
           <p className="mt-2 font-serif text-3xl text-staff-strong">{roleTracks}</p>
         </Link>
-        <div className="rounded-lg border border-staff-line p-4">
+        <Link className="rounded-lg border border-staff-line p-4 hover:bg-staff-hover" href="/console/library/questions">
           <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">Questions in use</p>
           <p className="mt-2 font-serif text-3xl text-staff-strong">{questions}</p>
-        </div>
+        </Link>
         <Link className="rounded-lg border border-staff-line p-4 hover:bg-staff-hover" href="/console/library/roles">
           <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">Role profiles in the workbook</p>
           <p className="mt-2 font-serif text-3xl text-staff-strong">{roles}</p>

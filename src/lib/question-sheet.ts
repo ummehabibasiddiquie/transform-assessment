@@ -14,13 +14,40 @@ const RESPONSE_TYPES = new Set([
   "PRACTICAL",
 ]);
 
+const RESPONSE_ALIASES: Record<string, string> = {
+  SHORT_RESPONSE: "SHORT",
+  SHORT_ANSWER: "SHORT",
+  WRITTEN: "SHORT",
+};
+
+export function isQuestionWorkbook(buffer: Buffer) {
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  return workbook.SheetNames.some((name) => {
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[name], {
+      defval: "",
+      raw: false,
+    });
+    return rows.some((row) => "Question" in row && "Role_Code" in row && "Module" in row);
+  });
+}
+
 const MODULES = new Set(["ROLE", "COMMON_APTITUDE", "COMMON_PROBLEM_SOLVING"]);
+
+export type ImportMode = "add" | "replace";
 
 export type QuestionSheetResult = {
   roles: number;
   created: number;
   updated: number;
+  retired: number;
+  replaceSkipped: boolean;
+  sections: string[];
   errors: string[];
+};
+
+const COMMON_LABELS: Record<string, string> = {
+  COMMON_APTITUDE: "Aptitude (all roles)",
+  COMMON_PROBLEM_SOLVING: "Problem solving (all roles)",
 };
 
 function cell(row: Record<string, unknown>, ...keys: string[]) {
@@ -38,14 +65,19 @@ function yes(value: string) {
 
 function sheetRows(buffer: Buffer) {
   const workbook = XLSX.read(buffer, { type: "buffer" });
-  const name = workbook.SheetNames.includes("Questions")
-    ? "Questions"
-    : workbook.SheetNames[0];
-  if (!name) return [];
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[name], {
-    defval: "",
-    raw: false,
-  });
+  const rows: { sheet: string; line: number; row: Record<string, unknown> }[] = [];
+  for (const name of workbook.SheetNames) {
+    const sheetRowsList = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[name], {
+      defval: "",
+      raw: false,
+    });
+    const isQuestionSheet = sheetRowsList.some(
+      (row) => "Question" in row || "Prompt" in row || "Item_ID" in row,
+    );
+    if (!isQuestionSheet) continue;
+    sheetRowsList.forEach((row, index) => rows.push({ sheet: name, line: index + 2, row }));
+  }
+  return rows;
 }
 
 export function questionTemplateBuffer() {
@@ -122,6 +154,42 @@ export function questionTemplateBuffer() {
       Search_Allowed: "No",
       Status: "Active",
     },
+    {
+      Item_ID: "APT-EXAMPLE-1",
+      Role_Code: "COMMON",
+      Role_Name: "All roles",
+      Level: "All",
+      Module: "COMMON_APTITUDE",
+      Response_Type: "MCQ",
+      Title: "Sample aptitude question",
+      Question: "A team completes 18 records an hour for 5 hours. How many records?",
+      Options: "A. 80\nB. 90\nC. 95\nD. 100",
+      Answer_Key: "B",
+      Competency: "Numerical reasoning",
+      Difficulty: "2",
+      Time_Min: "1",
+      AI_Allowed: "No",
+      Search_Allowed: "No",
+      Status: "Active",
+    },
+    {
+      Item_ID: "PS-EXAMPLE-1",
+      Role_Code: "COMMON",
+      Role_Name: "All roles",
+      Level: "All",
+      Module: "COMMON_PROBLEM_SOLVING",
+      Response_Type: "SHORT",
+      Title: "Sample problem-solving scenario",
+      Question: "A weekly report shows a number that does not match the source. List the facts, what you do not know, and your first check.",
+      Options: "",
+      Answer_Key: "Separates facts from assumptions; checks the source before changing anything.",
+      Competency: "Problem solving",
+      Difficulty: "3",
+      Time_Min: "4",
+      AI_Allowed: "No",
+      Search_Allowed: "No",
+      Status: "Active",
+    },
   ];
   const sheet = XLSX.utils.json_to_sheet(rows);
   sheet["!cols"] = rows[0]
@@ -135,36 +203,47 @@ export function questionTemplateBuffer() {
 export async function importQuestionSheet(
   prisma: PrismaClient,
   buffer: Buffer,
+  mode: ImportMode = "add",
 ): Promise<QuestionSheetResult> {
   const rows = sheetRows(buffer);
-  const result: QuestionSheetResult = { roles: 0, created: 0, updated: 0, errors: [] };
+  const result: QuestionSheetResult = {
+    roles: 0,
+    created: 0,
+    updated: 0,
+    retired: 0,
+    replaceSkipped: false,
+    sections: [],
+    errors: [],
+  };
   if (rows.length === 0) {
     result.errors.push("The file has no question rows.");
     return result;
   }
 
   const tracks = new Map<string, string>();
+  const trackNames = new Map<string, string>();
+  const sections = new Map<string, { module: string; trackId: string | null; sourceIds: string[] }>();
   let seenRole = 0;
 
-  for (const [index, row] of rows.entries()) {
-    const line = index + 2;
-    const roleCode = cell(row, "Role_Code", "Track_ID");
+  for (const { sheet, line: sheetLine, row } of rows) {
+    const line = `${sheet} row ${sheetLine}`;
+    const moduleName = cell(row, "Module") || "ROLE";
+    const roleCode = cell(row, "Role_Code", "Track_ID") || (moduleName === "ROLE" ? "" : "COMMON");
     const roleName = cell(row, "Role_Name", "Role");
     const level = cell(row, "Level");
-    const moduleName = cell(row, "Module") || "ROLE";
     const title = cell(row, "Title");
     const prompt = cell(row, "Question", "Prompt");
     if (!roleCode || !title || !prompt) {
-      result.errors.push(`Row ${line}: Role_Code, Title, and Question are required.`);
+      result.errors.push(`${line}: Role_Code, Title, and Question are required.`);
       continue;
     }
     if (!MODULES.has(moduleName)) {
-      result.errors.push(`Row ${line}: Module must be ROLE, COMMON_APTITUDE, or COMMON_PROBLEM_SOLVING.`);
+      result.errors.push(`${line}: Module must be ROLE, COMMON_APTITUDE, or COMMON_PROBLEM_SOLVING.`);
       continue;
     }
 
-    let trackId = tracks.get(roleCode) ?? null;
-    if (!trackId) {
+    let trackId = moduleName === "ROLE" ? (tracks.get(roleCode) ?? null) : null;
+    if (moduleName === "ROLE" && !trackId) {
       const existing = await prisma.assessmentTrack.findUnique({ where: { code: roleCode } });
       if (existing) {
         trackId = existing.id;
@@ -184,14 +263,18 @@ export async function importQuestionSheet(
         });
         trackId = created.id;
         seenRole += 1;
-      } else if (moduleName === "ROLE") {
-        result.errors.push(`Row ${line}: unknown role ${roleCode}. Add Role_Name and Level on that row.`);
+      } else {
+        result.errors.push(`${line}: unknown role ${roleCode}. Add Role_Name and Level on that row.`);
         continue;
       }
-      if (trackId) tracks.set(roleCode, trackId);
+      tracks.set(roleCode, trackId);
+      const track = await prisma.assessmentTrack.findUnique({ where: { id: trackId } });
+      trackNames.set(trackId, track ? `${track.roleName} — ${track.level}` : roleCode);
     }
 
-    const requestedType = cell(row, "Response_Type") || "MCQ";
+    const requestedType =
+      RESPONSE_ALIASES[cell(row, "Response_Type")] ??
+      (cell(row, "Response_Type") || "MCQ");
     const optionsRaw = cell(row, "Options");
     const choices = parseChoices(optionsRaw);
     const responseType = RESPONSE_TYPES.has(requestedType)
@@ -201,7 +284,11 @@ export async function importQuestionSheet(
       : choices.length >= 2
         ? "MCQ"
         : "SHORT";
-    const sourceId = cell(row, "Item_ID") || `${roleCode}-${line}`;
+    const sourceId = cell(row, "Item_ID") || `${roleCode}-${sheet}-${sheetLine}`;
+    const sectionKey = moduleName === "ROLE" ? `ROLE:${trackId}` : moduleName;
+    const section = sections.get(sectionKey) ?? { module: moduleName, trackId, sourceIds: [] };
+    section.sourceIds.push(sourceId);
+    sections.set(sectionKey, section);
     const data = {
       module: moduleName,
       trackId: moduleName === "ROLE" ? trackId : null,
@@ -228,11 +315,36 @@ export async function importQuestionSheet(
     }
   }
 
+  result.sections = [...sections.values()].map((section) =>
+    section.module === "ROLE"
+      ? (trackNames.get(section.trackId ?? "") ?? "Role")
+      : (COMMON_LABELS[section.module] ?? section.module),
+  );
+
+  if (mode === "replace") {
+    if (result.errors.length > 0) {
+      result.replaceSkipped = true;
+    } else {
+      for (const section of sections.values()) {
+        const retired = await prisma.bankItem.updateMany({
+          where: {
+            module: section.module,
+            ...(section.module === "ROLE" ? { trackId: section.trackId } : {}),
+            sourceId: { notIn: section.sourceIds },
+            status: "APPROVED",
+          },
+          data: { status: "RETIRED" },
+        });
+        result.retired += retired.count;
+      }
+    }
+  }
+
   result.roles = seenRole;
   return result;
 }
 
-function optionsJsonFor(
+export function optionsJsonFor(
   responseType: string,
   raw: string,
   choices: ReturnType<typeof parseChoices>,
@@ -264,7 +376,7 @@ function optionsJsonFor(
   return JSON.stringify(choices);
 }
 
-function optionsText(optionsJson: string) {
+export function optionsText(optionsJson: string) {
   try {
     const parsed = JSON.parse(optionsJson) as
       | { id?: string; label?: string }[]
@@ -297,13 +409,58 @@ function optionsText(optionsJson: string) {
   }
 }
 
+type BankRow = Awaited<ReturnType<PrismaClient["bankItem"]["findMany"]>>[number];
+
+const COMMON_TRACK = { code: "COMMON", roleName: "All roles", level: "All" };
+
 export async function roleQuestionsBuffer(prisma: PrismaClient, roleCode: string) {
+  if (roleCode === "ALL") return libraryBuffer(prisma);
+  if (roleCode === "COMMON") {
+    const items = await prisma.bankItem.findMany({
+      where: { module: { in: ["COMMON_APTITUDE", "COMMON_PROBLEM_SOLVING"] } },
+      orderBy: [{ module: "asc" }, { sourceId: "asc" }],
+    });
+    return questionsWorkbook([{ name: "COMMON", rows: questionRows(items, COMMON_TRACK) }]);
+  }
   const track = await prisma.assessmentTrack.findUnique({
     where: { code: roleCode },
     include: { items: { orderBy: { sourceId: "asc" } } },
   });
   if (!track) return null;
-  const rows = track.items.map((item) => ({
+  return questionsWorkbook([{ name: "Questions", rows: questionRows(track.items, track) }]);
+}
+
+async function libraryBuffer(prisma: PrismaClient) {
+  const [common, tracks] = await Promise.all([
+    prisma.bankItem.findMany({
+      where: { module: { in: ["COMMON_APTITUDE", "COMMON_PROBLEM_SOLVING"] }, status: "APPROVED" },
+      orderBy: [{ module: "asc" }, { sourceId: "asc" }],
+    }),
+    prisma.assessmentTrack.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { code: "asc" },
+      include: { items: { where: { status: "APPROVED" }, orderBy: { sourceId: "asc" } } },
+    }),
+  ]);
+  return questionsWorkbook([
+    { name: "COMMON", rows: questionRows(common, COMMON_TRACK) },
+    ...tracks.map((track) => ({
+      name: track.code.replace(/[\\/?*[\]:]/g, "-").slice(0, 31),
+      rows: questionRows(track.items, track),
+    })),
+  ]);
+}
+
+function questionsWorkbook(sheets: { name: string; rows: ReturnType<typeof questionRows> }[]) {
+  const workbook = XLSX.utils.book_new();
+  for (const sheet of sheets) {
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(sheet.rows), sheet.name);
+  }
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+function questionRows(items: BankRow[], track: { code: string; roleName: string; level: string }) {
+  return items.map((item) => ({
     Item_ID: item.sourceId,
     Role_Code: track.code,
     Role_Name: track.roleName,
@@ -321,8 +478,4 @@ export async function roleQuestionsBuffer(prisma: PrismaClient, roleCode: string
     Search_Allowed: item.searchAllowed ? "Yes" : "No",
     Status: item.status === "RETIRED" ? "Retired" : "Active",
   }));
-  const sheet = XLSX.utils.json_to_sheet(rows);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, sheet, "Questions");
-  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }

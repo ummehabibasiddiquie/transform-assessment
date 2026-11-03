@@ -138,6 +138,7 @@ model Attempt {
   overallScore        Float?
   recommendation      String?
   uncertainties       String    @default("")
+  testScore           Float?
   candidate           Candidate @relation(fields: [candidateId], references: [id])
   assessmentVersion   AssessmentVersion @relation(fields: [assessmentVersionId], references: [id])
   invite              Invite?   @relation(fields: [inviteId], references: [id])
@@ -147,6 +148,7 @@ model Attempt {
   decisions           Decision[]
   suggestions         AiSuggestion[]
   gateReviews         GateReview[]
+  taskMarks           TaskMark[]
 }
 
 model Response {
@@ -373,4 +375,18 @@ model GateReview {
   attempt    Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@unique([attemptId, gate])
+}
+
+model TaskMark {
+  id          String   @id @default(cuid())
+  attemptId   String
+  taskId      String
+  mark        Float?
+  aiMark      Float?
+  aiReason    String   @default("")
+  evaluatorId String?
+  updatedAt   DateTime @updatedAt
+  attempt     Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, taskId])
 }

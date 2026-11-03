@@ -26,7 +26,7 @@ export default async function EditTaskPage({
   return (
     <div className="max-w-2xl">
       <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">
-        Slot {task.sequence}
+        Task {task.sequence}
       </p>
       <h1 className="mt-2 mb-8 font-serif text-4xl text-staff-strong">Edit task</h1>
       <TaskEditorForm

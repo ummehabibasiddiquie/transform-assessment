@@ -15,7 +15,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Role not found." }, { status: 404 });
   }
   const body = exported ?? questionTemplateBuffer();
-  const filename = role ? `${role}-questions.xlsx` : "role-questions-template.xlsx";
+  const filename =
+    role === "ALL"
+      ? "question-library.xlsx"
+      : role
+        ? `${role}-questions.xlsx`
+        : "role-questions-template.xlsx";
   return new NextResponse(new Uint8Array(body), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

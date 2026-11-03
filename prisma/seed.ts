@@ -29,6 +29,7 @@ async function main() {
   if (process.env.SEED_RESET === "true") {
     await prisma.aiSuggestion.deleteMany();
     await prisma.gateReview.deleteMany();
+    await prisma.taskMark.deleteMany();
     await prisma.questionExposure.deleteMany();
     await prisma.taskKey.deleteMany();
     await prisma.bankItem.deleteMany();

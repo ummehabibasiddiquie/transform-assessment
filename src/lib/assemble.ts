@@ -45,43 +45,33 @@ export function planTrackItems(
     approved.filter((item) => item.module === "COMMON_APTITUDE"),
     track.level,
   );
+  const aptitudeUploaded = aptitudePool.filter((item) => item.bank === "UPLOAD");
   const aptitudePreferred = aptitudePool.filter(
     (item) => item.bank === "OBJECTIVE" && !item.title.toLowerCase().includes("novel"),
   );
-  const aptitude = pickItems(
-    [...aptitudePreferred, ...aptitudePool.filter((item) => !aptitudePreferred.includes(item))],
-    20,
-    exposed,
+  const aptitudeSource =
+    aptitudeUploaded.length > 0
+      ? aptitudeUploaded
+      : aptitudePreferred.length > 0
+        ? aptitudePreferred
+        : aptitudePool;
+  const aptitude = pickItems(aptitudeSource, aptitudeSource.length, exposed);
+  const problemSolvingPool = byDifficulty(
+    approved.filter((item) => item.module === "COMMON_PROBLEM_SOLVING"),
+    track.level,
   );
-  const problemSolving = pickItems(
-    byDifficulty(
-      approved.filter((item) => item.module === "COMMON_PROBLEM_SOLVING"),
-      track.level,
-    ),
-    8,
-    exposed,
-  );
+  const problemSolvingUploaded = problemSolvingPool.filter((item) => item.bank === "UPLOAD");
+  const problemSolvingSource =
+    problemSolvingUploaded.length > 0 ? problemSolvingUploaded : problemSolvingPool;
+  const problemSolving = pickItems(problemSolvingSource, problemSolvingSource.length, exposed);
   const rolePool = approved.filter((item) => item.module === "ROLE" && item.trackId === track.id);
-  const required = rolePool
-    .filter((item) => item.sourceId.startsWith("OE-FR-"))
-    .sort((a, b) => a.sourceId.localeCompare(b.sourceId));
   const uploaded = rolePool
-    .filter((item) => item.bank === "UPLOAD" && !item.sourceId.startsWith("OE-FR-"))
+    .filter((item) => item.bank === "UPLOAD")
     .sort((a, b) => a.sourceId.localeCompare(b.sourceId));
   const role =
     uploaded.length > 0
-      ? [...required, ...uploaded]
-      : [
-          ...required,
-          ...pickItems(
-            byDifficulty(
-              rolePool.filter((item) => !item.sourceId.startsWith("OE-FR-")),
-              track.level,
-            ),
-            track.code === "TR-OE-F" ? 0 : 12,
-            exposed,
-          ),
-        ];
+      ? uploaded
+      : pickItems(byDifficulty(rolePool, track.level), rolePool.length, exposed);
   return { aptitude, problemSolving, role };
 }
 

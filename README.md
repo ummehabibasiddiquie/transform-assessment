@@ -13,7 +13,7 @@ Local development uses **MySQL** from XAMPP, like the other internal apps.
 ```bash
 npm install
 npm run setup
-npm run import:library "path/to/TRANSFORM_Master_Assessment_Content_Library_V4.xlsx"
+npm run import:library "path/to/TRANSFORM_Updated_Full_Question_Library_V1.xlsx"
 npm run dev
 ```
 
@@ -27,11 +27,13 @@ The app has two staff roles: **Admin** and **Evaluator**. Assessment design and 
 
 Candidates are not registered. Invite them from **Invite candidate**. Add more staff from **Staff users** (admin only).
 
-Invite a candidate from the console and copy the assessment link. Email delivery is not required for this version.
+Invite a candidate from the console. The system emails them the test link using the HR invitation template. They are asked not to reply to the sending address and to contact `HR@TRANSFORMSOLUTION.NET` or `+919558469999` instead.
+
+Set `SMTP_HOST`, `SMTP_USER`, and `SMTP_PASS` (and optionally `MAIL_FROM` and `SMTP_PORT`) so the email can send. The private link is still on the candidate record if you need to resend.
 
 Reset demo data with `npm run db:reset`.
 
-Import the V4 content library with `npm run import:library "path/to/file.xlsx"`, or upload it from **Content library** in the staff console.
+Import the updated question library with `npm run import:library "path/to/file.xlsx"`, or upload it from **Content library** in the staff console. This replaces previous questions. Papers already sent to candidates are not changed.
 
 ## Deploy on Vercel
 
@@ -41,6 +43,8 @@ Vercel uses hosted **Postgres** and its own schema file, `prisma/schema.postgres
 2. In Vercel → Project → Settings → Environment Variables, add for **Production**:
    - `DATABASE_URL` — the Neon / Postgres URL
    - `AUTH_SECRET` — a long random string (PowerShell: `[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])`)
+   - `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` — mailbox used to send candidate invitations
+   - `MAIL_FROM` — optional, e.g. `Transform Solution <noreply@transformsolution.net>`
 3. Redeploy. The Vercel build creates the tables and the demo staff accounts.
 
 Login (Admin): `yahya.irani@example.net` / `transform123`

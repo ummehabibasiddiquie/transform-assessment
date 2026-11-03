@@ -6,7 +6,7 @@ import { requireStaff } from "@/lib/access";
 import { audit } from "@/lib/audit";
 import { importContentLibrary } from "@/lib/library-import";
 import { parseChoices } from "@/lib/question-shape";
-import { importQuestionSheet } from "@/lib/question-sheet";
+import { importQuestionSheet, optionsJsonFor } from "@/lib/question-sheet";
 
 export async function importLibraryFile(formData: FormData) {
   const staff = await requireStaff("editAssessment");
@@ -65,16 +65,20 @@ export async function importRoleQuestions(formData: FormData) {
   if (!file.name.toLowerCase().endsWith(".xlsx")) {
     redirect("/console/library/configure?error=" + encodeURIComponent("Upload an .xlsx file."));
   }
+  const mode = formData.get("mode") === "replace" ? "replace" : "add";
   const buffer = Buffer.from(await file.arrayBuffer());
-  const summary = await importQuestionSheet(prisma, buffer);
+  const summary = await importQuestionSheet(prisma, buffer, mode);
   await audit({
     actorId: staff.userId,
     action: "IMPORT_ROLE_QUESTIONS",
     entity: "BankItem",
     entityId: file.name,
     metadata: {
+      mode,
       created: summary.created,
       updated: summary.updated,
+      retired: summary.retired,
+      sections: summary.sections,
       roles: summary.roles,
       errors: summary.errors.length,
     },
@@ -85,12 +89,19 @@ export async function importRoleQuestions(formData: FormData) {
         encodeURIComponent(summary.errors[0] ?? "No questions were imported."),
     );
   }
-  const note = summary.errors.length
-    ? `${summary.errors.length} row(s) skipped.`
-    : "All rows imported.";
+  const parts = [
+    `${summary.created} added, ${summary.updated} updated`,
+    mode === "replace" && !summary.replaceSkipped ? `${summary.retired} old questions retired` : "",
+  ].filter(Boolean);
+  const changed = summary.sections.length ? ` Changed: ${summary.sections.join(", ")}.` : "";
+  const note = summary.replaceSkipped
+    ? ` ${summary.errors.length} row(s) had errors, so no old questions were retired. First problem: ${summary.errors[0]}`
+    : summary.errors.length
+      ? ` ${summary.errors.length} row(s) skipped. First problem: ${summary.errors[0]}`
+      : "";
   redirect(
     "/console/library/configure?saved=" +
-      encodeURIComponent(`${summary.created} added, ${summary.updated} updated. ${note}`),
+      encodeURIComponent(`${parts.join(", ")}.${changed}${note}`),
   );
 }
 
@@ -138,4 +149,49 @@ export async function addBankQuestion(formData: FormData) {
     metadata: { module: moduleName, trackCode },
   });
   redirect("/console/library/configure?saved=question");
+}
+
+export async function saveBankQuestion(formData: FormData) {
+  const staff = await requireStaff("editAssessment");
+  const id = String(formData.get("id") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const prompt = String(formData.get("prompt") ?? "").trim();
+  const responseType = String(formData.get("responseType") ?? "MCQ");
+  const options = String(formData.get("options") ?? "");
+  const answerKey = String(formData.get("answerKey") ?? "").trim();
+  if (!id || !title || !prompt) {
+    redirect("/console/library/questions?error=" + encodeURIComponent("Title and question text are required."));
+  }
+  const item = await prisma.bankItem.findUnique({ where: { id } });
+  if (!item) {
+    redirect("/console/library/questions?error=" + encodeURIComponent("That question was not found."));
+  }
+  const choices = parseChoices(options);
+  await prisma.bankItem.update({
+    where: { id },
+    data: {
+      title,
+      prompt,
+      responseType,
+      optionsJson: optionsJsonFor(responseType, options, choices),
+      answerKey,
+      competency: String(formData.get("competency") ?? "").trim(),
+      difficulty: String(formData.get("difficulty") ?? "").trim(),
+      timeLimitMin: Number(formData.get("timeLimitMin") || item.timeLimitMin || 2),
+      aiAllowed: formData.get("aiAllowed") === "on",
+      searchAllowed: formData.get("searchAllowed") === "on",
+      status: String(formData.get("status") ?? "APPROVED") === "RETIRED" ? "RETIRED" : "APPROVED",
+    },
+  });
+  await audit({
+    actorId: staff.userId,
+    action: "UPDATE_QUESTION",
+    entity: "BankItem",
+    entityId: item.sourceId,
+  });
+  const role =
+    item.module === "ROLE"
+      ? (await prisma.assessmentTrack.findUnique({ where: { id: item.trackId ?? "" } }))?.code ?? "COMMON"
+      : "COMMON";
+  redirect(`/console/library/questions/role/${role}?saved=1`);
 }

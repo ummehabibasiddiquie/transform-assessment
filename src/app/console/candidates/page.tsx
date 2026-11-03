@@ -27,6 +27,11 @@ export default async function CandidatesPage({
             OR: [
               { name: { contains: q } },
               { email: { contains: q } },
+              {
+                invites: {
+                  some: { assessmentVersion: { assessment: { name: { contains: q } } } },
+                },
+              },
             ],
           }
         : {}),
@@ -35,6 +40,11 @@ export default async function CandidatesPage({
     include: {
       attempts: { orderBy: { startedAt: "desc" }, take: 1 },
       decisions: { orderBy: { createdAt: "desc" }, take: 1 },
+      invites: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { assessmentVersion: { select: { assessment: { select: { name: true } } } } },
+      },
     },
   });
 
@@ -64,7 +74,7 @@ export default async function CandidatesPage({
         <input
           name="q"
           defaultValue={q}
-          placeholder="Search name or email"
+          placeholder="Search name, email, or role"
           className="min-w-56 flex-1 rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-strong outline-none focus:border-staff-accent"
         />
         <select

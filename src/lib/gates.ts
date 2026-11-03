@@ -3,10 +3,15 @@ import { parseJson } from "./json";
 
 export type GateRule = { name: string; trigger: string; effect: string };
 
-export const GATE_STATUSES = [
+export const INTERVIEW_GATE_STATUSES = [
   { value: "PASS", label: "Pass" },
   { value: "CONCERN", label: "Concern" },
   { value: "FAIL", label: "Fail" },
+] as const;
+
+export const GATE_STATUSES = [
+  ...INTERVIEW_GATE_STATUSES,
+  { value: "INTERVIEW", label: "Check in interview" },
 ] as const;
 
 const GUIDE_WORDS: { title: string; words: string[] }[] = [
