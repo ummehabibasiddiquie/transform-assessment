@@ -103,17 +103,17 @@ async function importUpdatedQuestionLibrary(
   buffer: Buffer,
   meta: { fileName: string; importedById?: string },
 ): Promise<ImportSummary> {
-  await prisma.bankItem.deleteMany();
-  const result = await importQuestionSheet(prisma, buffer, "replace");
-  const tracks = await prisma.assessmentTrack.findMany({
-    include: { items: { where: { status: "APPROVED", module: "ROLE" }, select: { id: true } } },
-  });
-  for (const track of tracks) {
-    await prisma.assessmentTrack.update({
-      where: { id: track.id },
-      data: { status: track.items.length > 0 ? "ACTIVE" : "INACTIVE" },
-    });
-  }
+  await prisma.$transaction([
+    prisma.libraryBlueprint.deleteMany(),
+    prisma.libraryContentItem.deleteMany(),
+    prisma.libraryAssessmentType.deleteMany(),
+    prisma.libraryCompetency.deleteMany(),
+    prisma.libraryRole.deleteMany(),
+    prisma.libraryConfig.deleteMany(),
+    prisma.bankItem.deleteMany(),
+    prisma.assessmentTrack.deleteMany(),
+  ]);
+  const result = await importQuestionSheet(prisma, buffer, "add");
   const counts: Record<string, number> = {
     roles: await prisma.assessmentTrack.count({ where: { status: "ACTIVE" } }),
     bankItems: await prisma.bankItem.count({ where: { status: "APPROVED" } }),

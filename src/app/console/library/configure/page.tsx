@@ -36,8 +36,8 @@ export default async function ConfigureLibraryPage({
         <h1 className="mt-3 font-serif text-4xl text-staff-strong">Questions from Excel</h1>
         <p className="mt-3 text-sm leading-6 text-staff-body">
           Use one file for any role, for several roles, or for the common sections that every
-          role shares (aptitude and problem solving). One sheet per role is fine. Only the roles
-          and sections in the file change; everything else stays as it is. A paper already sent
+          role shares (aptitude and problem solving). One sheet per role is fine. Choose Add to
+          keep other roles, or Replace to drop everything not in this file. A paper already sent
           stays as it was.
         </p>
       </div>
@@ -72,7 +72,7 @@ export default async function ConfigureLibraryPage({
         action={importRoleQuestions}
         onlyIf={{ field: "mode", value: "replace" }}
         message={
-          "Replace existing questions?\n\nFor every role and common section in this file, the current questions will be retired and only the questions in this file will be used for new papers.\n\nRoles and sections not in the file are not changed. Papers already sent are not affected.\n\nClick OK to replace, or Cancel to stop."
+          "Replace the live library?\n\nOnly roles and questions in this file will remain. Roles and questions from the previous library will be removed from new papers.\n\nPapers already sent are not affected.\n\nClick OK to replace, or Cancel to stop."
         }
         className="space-y-4 rounded-lg border border-staff-line p-5"
       >
@@ -92,9 +92,9 @@ export default async function ConfigureLibraryPage({
           <label className="flex items-start gap-2">
             <input type="radio" name="mode" value="replace" className="mt-1" />
             <span className="text-staff-body">
-              <span className="text-staff-strong">Replace existing questions.</span> For each role
-              and common section in this file, older questions are retired and only this
-              file&rsquo;s questions are used.
+              <span className="text-staff-strong">Replace previous data.</span> The live library
+              becomes this file only. Previous roles and questions are removed. Papers already
+              sent stay as they were.
             </span>
           </label>
         </fieldset>

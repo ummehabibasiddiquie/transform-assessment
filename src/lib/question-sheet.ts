@@ -322,20 +322,25 @@ export async function importQuestionSheet(
   );
 
   if (mode === "replace") {
-    if (result.errors.length > 0) {
+    const importedIds = [...sections.values()].flatMap((section) => section.sourceIds);
+    if (importedIds.length === 0) {
       result.replaceSkipped = true;
     } else {
-      for (const section of sections.values()) {
-        const retired = await prisma.bankItem.updateMany({
-          where: {
-            module: section.module,
-            ...(section.module === "ROLE" ? { trackId: section.trackId } : {}),
-            sourceId: { notIn: section.sourceIds },
-            status: "APPROVED",
-          },
-          data: { status: "RETIRED" },
+      const removed = await prisma.bankItem.deleteMany({
+        where: { sourceId: { notIn: importedIds } },
+      });
+      result.retired = removed.count;
+      const keepCodes = [...tracks.keys()];
+      if (keepCodes.length === 0) {
+        await prisma.assessmentTrack.deleteMany();
+      } else {
+        await prisma.assessmentTrack.deleteMany({
+          where: { code: { notIn: keepCodes } },
         });
-        result.retired += retired.count;
+        await prisma.assessmentTrack.updateMany({
+          where: { code: { in: keepCodes } },
+          data: { status: "ACTIVE" },
+        });
       }
     }
   }

@@ -91,11 +91,13 @@ export async function importRoleQuestions(formData: FormData) {
   }
   const parts = [
     `${summary.created} added, ${summary.updated} updated`,
-    mode === "replace" && !summary.replaceSkipped ? `${summary.retired} old questions retired` : "",
+    mode === "replace" && !summary.replaceSkipped
+      ? `${summary.retired} previous questions/roles removed`
+      : "",
   ].filter(Boolean);
   const changed = summary.sections.length ? ` Changed: ${summary.sections.join(", ")}.` : "";
   const note = summary.replaceSkipped
-    ? ` ${summary.errors.length} row(s) had errors, so no old questions were retired. First problem: ${summary.errors[0]}`
+    ? ` No valid questions were found, so the previous library was left unchanged. First problem: ${summary.errors[0] ?? "empty file"}`
     : summary.errors.length
       ? ` ${summary.errors.length} row(s) skipped. First problem: ${summary.errors[0]}`
       : "";
