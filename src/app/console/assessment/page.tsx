@@ -111,7 +111,9 @@ export default async function AssessmentContentPage() {
               <input
                 name="durationMin"
                 type="number"
-                defaultValue={assessment.durationMin}
+                min={1}
+                max={60}
+                defaultValue={Math.min(assessment.durationMin, 60)}
                 disabled={locked}
                 className="w-full rounded-md border border-staff-line bg-staff-bg px-3 py-2 text-sm text-staff-strong disabled:opacity-60"
               />

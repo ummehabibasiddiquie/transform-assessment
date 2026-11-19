@@ -74,7 +74,7 @@ export async function saveVersionCopy(formData: FormData) {
   });
   await prisma.assessment.update({
     where: { id: version.assessmentId },
-    data: { durationMin: Number(formData.get("durationMin") || 90) },
+    data: { durationMin: Math.min(Number(formData.get("durationMin") || 60) || 60, 60) },
   });
   await audit({
     actorId: staff.userId,

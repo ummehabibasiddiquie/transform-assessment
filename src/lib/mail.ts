@@ -1,6 +1,9 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 import { smtpConfig } from "./env";
 import { HR_CONTACT_EMAIL } from "./invite-email";
+
+let transporter: Transporter | null = null;
+let transporterKey = "";
 
 export function mailConfigured() {
   const smtp = smtpConfig();
@@ -14,12 +17,7 @@ export function mailFromAddress() {
   return `"${name}" <${smtp.user}>`;
 }
 
-export async function sendMail(options: {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-}) {
+function getTransporter() {
   const smtp = smtpConfig();
   if (!smtp.host || !smtp.user || !smtp.pass) {
     throw new Error(
@@ -27,14 +25,20 @@ export async function sendMail(options: {
     );
   }
   const port = Number(smtp.port || "587");
-  const transporter = nodemailer.createTransport({
+  const pass = smtp.pass.replace(/\s+/g, "");
+  const key = `${smtp.host}|${port}|${smtp.user}|${pass}`;
+  if (transporter && transporterKey === key) return transporter;
+
+  transporter?.close();
+  transporterKey = key;
+  transporter = nodemailer.createTransport({
     host: smtp.host,
     port,
     secure: port === 465,
     requireTLS: port === 587,
     auth: {
       user: smtp.user,
-      pass: smtp.pass,
+      pass,
     },
     tls: {
       rejectUnauthorized: false,
@@ -42,8 +46,19 @@ export async function sendMail(options: {
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 20000,
+    pool: true,
+    maxConnections: 1,
   });
-  await transporter.sendMail({
+  return transporter;
+}
+
+export async function sendMail(options: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}) {
+  await getTransporter().sendMail({
     from: mailFromAddress(),
     to: options.to,
     replyTo: HR_CONTACT_EMAIL,

@@ -50,13 +50,11 @@ export function formatCompleteBy(value: string) {
   return `${day} ${months[month - 1]} ${year}, ${hour12}:${minutes} ${ampm} IST`;
 }
 
+export const TEST_DURATION_MIN = 60;
+
 export function formatDuration(minutes: number) {
-  if (!minutes || minutes < 1) return "90 minutes";
-  if (minutes < 60) return `${minutes} minutes`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (rest === 0) return hours === 1 ? "1 hour" : `${hours} hours`;
-  return `${hours} hour${hours === 1 ? "" : "s"} ${rest} minutes`;
+  const value = Math.min(Math.max(minutes || TEST_DURATION_MIN, 1), TEST_DURATION_MIN);
+  return `${value} minutes`;
 }
 
 export function inviteEmailSubject(roleName: string) {

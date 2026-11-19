@@ -29,7 +29,6 @@ export function LoginForm() {
           type="email"
           required
           autoComplete="email"
-          defaultValue="ivan.p@example.net"
           className="w-full rounded-md border border-line bg-paper px-3 py-2.5 outline-none ring-clay/30 focus:ring-2"
         />
       </label>
@@ -41,7 +40,6 @@ export function LoginForm() {
           name="password"
           required
           autoComplete="current-password"
-          defaultValue="transform123"
           className="rounded-md border border-line bg-paper px-3 py-2.5 outline-none ring-clay/30 focus:ring-2"
         />
       </label>
@@ -51,7 +49,7 @@ export function LoginForm() {
         disabled={pending}
         className="btn-primary w-full rounded-md px-4 py-2.5 text-sm font-medium disabled:opacity-60"
       >
-        {pending ? "Signing in…" : "Open hiring console"}
+        {pending ? "Signing in…" : "Sign in"}
       </button>
     </form>
   );

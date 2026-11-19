@@ -10,31 +10,18 @@ export default function LoginPage() {
           </p>
           <div className="max-w-lg py-16">
             <p className="font-serif text-4xl leading-tight tracking-tight lg:text-5xl">
-              See how someone works, not how they interview.
-            </p>
-            <p className="mt-6 max-w-md text-base leading-7 text-ink-soft">
-              Candidates complete a realistic operations simulation. Hiring
-              teams review evidence, score capability, and record a decision
-              they can explain later.
+              Staff sign in
             </p>
           </div>
-          <p className="text-sm text-ink-soft">
-            Work simulation · evidence capture · human decision
-          </p>
+          <p className="text-sm text-ink-soft">Transform Solution</p>
         </section>
         <section className="flex items-center border-t border-line bg-paper-2 px-8 py-12 lg:border-l lg:border-t-0 lg:px-12">
           <div className="w-full max-w-sm">
-            <h1 className="font-serif text-3xl">Staff sign in</h1>
+            <h1 className="font-serif text-3xl">Sign in</h1>
             <p className="mt-2 mb-8 text-sm leading-6 text-ink-soft">
-              Staff only. Candidates never register here — they receive an invite
-              link. Demo password for all seeded accounts: transform123
+              Enter your staff email and password.
             </p>
             <LoginForm />
-            <ul className="mt-6 space-y-1 text-xs leading-5 text-ink-soft">
-              <li>yahya.irani@example.net — Admin console</li>
-              <li>shirin.gafoor@example.net — Evaluator workspace</li>
-              <li>ivan.p@example.net — Evaluator workspace</li>
-            </ul>
           </div>
         </section>
       </div>

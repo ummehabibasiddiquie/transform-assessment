@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { startAttempt } from "@/lib/actions";
+import { TEST_DURATION_MIN } from "@/lib/invite-email";
 
 export default async function CandidateIntroPage({
   params,
@@ -35,7 +36,8 @@ export default async function CandidateIntroPage({
         <h1 className="mt-4 font-serif text-4xl tracking-tight">{role.name}</h1>
         <p className="mt-2 text-lg text-ink-soft">{version.assessment.name}</p>
         <p className="mt-6 text-sm text-ink-soft">
-          Hello {invite.candidate.name}. Estimated time: {version.assessment.durationMin} minutes.
+          Hello {invite.candidate.name}. Estimated time:{" "}
+          {Math.min(version.assessment.durationMin || TEST_DURATION_MIN, TEST_DURATION_MIN)} minutes.
         </p>
         <div className="mt-8 space-y-4 rounded-lg border border-line bg-paper-2 p-5 text-base leading-7">
           <p>{version.instructions}</p>

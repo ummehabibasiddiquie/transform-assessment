@@ -119,7 +119,10 @@ export default async function InvitePage() {
       <section className="mt-10">
         <h2 className="font-serif text-2xl text-staff-strong">Paper each role will build</h2>
         <p className="mt-2 text-sm leading-6 text-staff-body">
-          A new invite copies these questions into a fixed paper. Changing the library later does not change a link that was already created. The same email invited again gets different shared questions when the bank has enough unused ones.
+          Each paper is sized for 60 minutes: about 15 minutes aptitude, 15 minutes
+          problem solving, and 30 minutes role tasks. The rest of the bank stays
+          unused. Changing the library later does not change a link that was already
+          created.
         </p>
         <table className="mt-4 w-full text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.14em] text-staff-muted">
