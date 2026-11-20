@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { startAttempt } from "@/lib/actions";
-import { TEST_DURATION_MIN } from "@/lib/invite-email";
+import { COMPANY_NAME, TEST_DURATION_MIN } from "@/lib/invite-email";
 
 export default async function CandidateIntroPage({
   params,
@@ -32,7 +32,7 @@ export default async function CandidateIntroPage({
   return (
     <main className="min-h-screen bg-paper text-ink">
       <div className="mx-auto max-w-2xl px-5 py-12 lg:py-20">
-        <p className="text-xs uppercase tracking-[0.22em] text-ink-soft">TRANSFORM</p>
+        <p className="text-xs tracking-wide text-ink-soft">{COMPANY_NAME}</p>
         <h1 className="mt-4 font-serif text-4xl tracking-tight">{role.name}</h1>
         <p className="mt-2 text-lg text-ink-soft">{version.assessment.name}</p>
         <p className="mt-6 text-sm text-ink-soft">

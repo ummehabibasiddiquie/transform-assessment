@@ -85,8 +85,7 @@ export async function inviteCandidate(formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const trackCode = String(formData.get("trackCode") ?? "").trim();
-  const requestedVersionId = String(formData.get("assessmentVersionId") ?? "");
+  const inviteChoice = String(formData.get("inviteChoice") ?? "").trim();
   const completeBy = String(formData.get("completeBy") ?? "").trim();
   if (!name || !email) {
     throw new Error("Name and email are required.");
@@ -94,16 +93,41 @@ export async function inviteCandidate(formData: FormData) {
   if (!completeBy) {
     throw new Error("Set the date and time the candidate should complete the test by.");
   }
-
-  const assessmentVersion = trackCode
-    ? await assembleTrackPaper(prisma, trackCode, email)
-    : requestedVersionId
-      ? await prisma.assessmentVersion.findUnique({ where: { id: requestedVersionId } })
-      : null;
-  if (!assessmentVersion || assessmentVersion.status !== "PUBLISHED") {
-    throw new Error("Choose a role and level, or a published assessment.");
+  if (!inviteChoice) {
+    throw new Error("Choose a role or a staff paper.");
   }
 
+  let assessmentVersion =
+    inviteChoice.startsWith("role:")
+      ? await assembleTrackPaper(prisma, inviteChoice.slice(5), email)
+      : inviteChoice.startsWith("paper:")
+        ? await prisma.assessmentVersion.findUnique({
+            where: { id: inviteChoice.slice(6) },
+            include: { tasks: { select: { sourceId: true } } },
+          })
+        : null;
+  if (!assessmentVersion || assessmentVersion.status !== "PUBLISHED") {
+    throw new Error("Choose a role with questions in the bank, or a published staff paper.");
+  }
+  const tasks =
+    "tasks" in assessmentVersion && Array.isArray(assessmentVersion.tasks)
+      ? assessmentVersion.tasks
+      : await prisma.task.findMany({
+          where: { assessmentVersionId: assessmentVersion.id },
+          select: { sourceId: true },
+        });
+  if (tasks.length === 0) {
+    throw new Error("That paper has no questions yet.");
+  }
+  for (const task of tasks) {
+    if (!("sourceId" in task) || !task.sourceId) continue;
+    await prisma.questionExposure.upsert({
+      where: { email_sourceId: { email, sourceId: task.sourceId } },
+      update: {},
+      create: { email, sourceId: task.sourceId },
+    });
+  }
+  
   const candidate = await prisma.candidate.create({
     data: { name, email, status: "INVITED" },
   });

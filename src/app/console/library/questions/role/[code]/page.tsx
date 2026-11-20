@@ -41,7 +41,7 @@ export default async function RoleQuestionsPage({
   if (!track) notFound();
 
   return (
-    <div className="max-w-4xl space-y-8">
+    <div className="w-full space-y-8">
       <div>
         <Link href="/console/library/questions" className="text-sm text-staff-accent">
           Questions in the system

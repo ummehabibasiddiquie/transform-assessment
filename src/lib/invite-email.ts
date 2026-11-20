@@ -1,6 +1,6 @@
 export const HR_CONTACT_EMAIL = "hr@transformsolution.net";
 export const HR_CONTACT_PHONE = "+919558469999";
-export const COMPANY_NAME = "Transform Solution";
+export const COMPANY_NAME = "TRANSFORM Solutions (P) Limited";
 export const EMAIL_SIGNATURE = "Regards,\nHR Team";
 
 export type InviteEmailFields = {

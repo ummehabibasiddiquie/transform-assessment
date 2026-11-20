@@ -1,6 +1,6 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import { smtpConfig } from "./env";
-import { HR_CONTACT_EMAIL } from "./invite-email";
+import { COMPANY_NAME, HR_CONTACT_EMAIL } from "./invite-email";
 
 let transporter: Transporter | null = null;
 let transporterKey = "";
@@ -12,7 +12,7 @@ export function mailConfigured() {
 
 export function mailFromAddress() {
   const smtp = smtpConfig();
-  const name = smtp.fromName || "Transform Solution";
+  const name = smtp.fromName || COMPANY_NAME;
   if (smtp.from.includes("@")) return smtp.from;
   return `"${name}" <${smtp.user}>`;
 }

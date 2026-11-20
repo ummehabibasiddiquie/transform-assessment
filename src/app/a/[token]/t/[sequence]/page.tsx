@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCandidateSession } from "@/lib/auth";
 import { TaskWorkspace } from "@/components/TaskWorkspace";
+import { COMPANY_NAME } from "@/lib/invite-email";
 import { parsePracticalPrompt } from "@/lib/practical-task";
 
 export default async function CandidateTaskPage({
@@ -61,8 +62,8 @@ export default async function CandidateTaskPage({
     <main className="min-h-screen bg-paper text-ink">
       <header className="border-b border-line px-5 py-3">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <p className="text-xs uppercase tracking-[0.18em] text-ink-soft">
-            TRANSFORM assessment
+          <p className="text-xs tracking-wide text-ink-soft">
+            {COMPANY_NAME}
           </p>
           <p className="text-xs text-ink-soft">
             {attempt.assessmentVersion.tasks.length} tasks · answers save as you type

@@ -11,22 +11,29 @@ const inputClass =
 
 export default async function BankQuestionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   await requireStaff("editAssessment");
   const { id } = await params;
+  const { from } = await searchParams;
   const item = await prisma.bankItem.findUnique({
     where: { id },
     include: { track: true },
   });
   if (!item) notFound();
   const role = item.module === "ROLE" ? (item.track?.code ?? "COMMON") : "COMMON";
+  const back =
+    from?.startsWith("/console/assessment")
+      ? from
+      : `/console/library/questions/role/${role}`;
 
   return (
     <div className="max-w-2xl space-y-8">
       <div>
-        <Link href={`/console/library/questions/role/${role}`} className="text-sm text-staff-accent">
+        <Link href={back} className="text-sm text-staff-accent">
           Back to {item.track ? `${item.track.roleName} — ${item.track.level}` : "common questions"}
         </Link>
         <p className="mt-3 text-xs uppercase tracking-[0.2em] text-staff-muted">{item.sourceId}</p>
@@ -38,6 +45,7 @@ export default async function BankQuestionPage({
 
       <form action={saveBankQuestion} className="space-y-5">
         <input type="hidden" name="id" value={item.id} />
+        {from?.startsWith("/console/assessment") ? <input type="hidden" name="returnTo" value={from} /> : null}
         <label className="block space-y-1.5">
           <span className="text-xs uppercase tracking-[0.16em] text-staff-muted">Title</span>
           <input name="title" required defaultValue={item.title} className={inputClass} />

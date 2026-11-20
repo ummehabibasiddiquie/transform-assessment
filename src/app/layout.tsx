@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
+import { COMPANY_NAME } from "@/lib/invite-email";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -13,8 +14,8 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "TRANSFORM Assessment",
-  description: "Work-simulation hiring for TRANSFORM",
+  title: `${COMPANY_NAME} Assessment`,
+  description: `Staff assessment for ${COMPANY_NAME}`,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

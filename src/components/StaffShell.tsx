@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { logoutStaff } from "@/lib/actions";
 import type { StaffSession } from "@/lib/auth";
+import { COMPANY_NAME } from "@/lib/invite-email";
 import { can, roleLabel, STAFF_NAV, workspaceLabel } from "@/lib/permissions";
 import type { StaffTheme } from "@/lib/staff-theme";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -19,8 +20,8 @@ export function StaffShell({
   return (
     <div className="staff-body min-h-screen" data-theme={theme ?? undefined}>
       <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-staff-line px-5 py-8 lg:block">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-staff-muted">
-          TRANSFORM
+        <p className="text-[11px] leading-4 tracking-wide text-staff-muted">
+          {COMPANY_NAME}
         </p>
         <p className="mt-3 font-serif text-2xl text-staff-strong">
           {workspaceLabel(staff.role)}

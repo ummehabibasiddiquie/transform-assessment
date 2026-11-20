@@ -64,17 +64,16 @@ export default async function ConsoleHome() {
       </div>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Active roles" value={String(roles)} />
-        <Stat label="Published papers" value={String(publishedVersions)} />
-        <Stat label="Awaiting review" value={String(awaiting.length)} />
-        <Stat label="Average test score" value={average == null ? "—" : `${average}%`} />
-      </section>
-
-      <section className="grid gap-3 sm:grid-cols-4">
         <Stat label="Invited" value={String(invited)} />
         <Stat label="In progress" value={String(inProgress)} />
+        <Stat label="Awaiting review" value={String(awaiting.length)} />
         <Stat label="Decided" value={String(decided)} />
-        <Stat label="Need action" value={String(awaiting.length)} />
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Stat label="Active roles" value={String(roles)} />
+        <Stat label="Published papers" value={String(publishedVersions)} />
+        <Stat label="Average test score" value={average == null ? "—" : `${average}%`} />
       </section>
 
       <section className="space-y-4">

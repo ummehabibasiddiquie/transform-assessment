@@ -1,41 +1,12 @@
 import { prisma } from "@/lib/db";
 
-type TaskCopy = {
-  sequence: number;
-  family: string;
-  title: string;
-  instructions: string;
-  referenceMaterial: string;
-  responseType: string;
-  timeLimitMin: number | null;
-  aiAllowed: boolean;
-  evidenceNotes: string;
-};
-
-function taskData(tasks: TaskCopy[]) {
-  return tasks
-    .slice()
-    .sort((a, b) => a.sequence - b.sequence)
-    .map((task, index) => ({
-      sequence: index + 1,
-      family: task.family,
-      title: task.title,
-      instructions: task.instructions,
-      referenceMaterial: task.referenceMaterial,
-      responseType: task.responseType,
-      timeLimitMin: task.timeLimitMin,
-      aiAllowed: task.aiAllowed,
-      evidenceNotes: task.evidenceNotes,
-    }));
-}
-
 export async function cloneAssessmentVersion(
   sourceId: string,
   status: "DRAFT" | "PRIVATE" | "PUBLISHED",
 ) {
   const source = await prisma.assessmentVersion.findUnique({
     where: { id: sourceId },
-    include: { tasks: true },
+    include: { tasks: { include: { key: true } } },
   });
   if (!source) throw new Error("Assessment version not found.");
 
@@ -52,7 +23,38 @@ export async function cloneAssessmentVersion(
       publishedAt: status === "PUBLISHED" ? new Date() : null,
       instructions: source.instructions,
       aiPolicy: source.aiPolicy,
-      tasks: { create: taskData(source.tasks) },
+      criticalGates: source.criticalGates,
+      tasks: {
+        create: source.tasks
+          .slice()
+          .sort((a, b) => a.sequence - b.sequence)
+          .map((task, index) => ({
+            sequence: index + 1,
+            family: task.family,
+            title: task.title,
+            instructions: task.instructions,
+            referenceMaterial: task.referenceMaterial,
+            responseType: task.responseType,
+            timeLimitMin: task.timeLimitMin,
+            aiAllowed: task.aiAllowed,
+            searchAllowed: task.searchAllowed,
+            evidenceNotes: task.evidenceNotes,
+            module: task.module,
+            optionsJson: task.optionsJson,
+            competencyName: task.competencyName,
+            sourceId: task.sourceId,
+            isGate: task.isGate,
+            key: task.key
+              ? {
+                  create: {
+                    answerKey: task.key.answerKey,
+                    rubric: task.key.rubric,
+                    evidence: task.key.evidence,
+                  },
+                }
+              : undefined,
+          })),
+      },
     },
     include: { tasks: { orderBy: { sequence: "asc" } } },
   });
@@ -70,6 +72,6 @@ export async function getOrCreateDraft(assessmentId: string) {
     where: { assessmentId, status: "PUBLISHED" },
     orderBy: { version: "desc" },
   });
-  if (!published) throw new Error("No published assessment to copy.");
+  if (!published) throw new Error("Publish a first version before starting another.");
   return cloneAssessmentVersion(published.id, "DRAFT");
 }

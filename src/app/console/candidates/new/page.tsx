@@ -6,24 +6,20 @@ import { PaperChoice } from "@/components/PaperChoice";
 import { SubmitButton } from "@/components/SubmitButton";
 import { defaultCompleteByInput, HR_CONTACT_EMAIL } from "@/lib/invite-email";
 import { mailConfigured } from "@/lib/mail";
+import { publishedPapersForInvite } from "@/lib/papers";
 
 export const maxDuration = 60;
 
 export default async function InvitePage() {
   await requireStaff("invite");
-  const [versions, tracks, items] = await Promise.all([
-    prisma.assessmentVersion.findMany({
-      where: { status: "PUBLISHED" },
-      orderBy: { version: "desc" },
-      include: { tasks: true, assessment: true },
-    }),
+  const [tracks, items, papers] = await Promise.all([
     prisma.assessmentTrack.findMany({
       where: { status: "ACTIVE" },
       orderBy: [{ roleName: "asc" }, { level: "asc" }],
     }),
     prisma.bankItem.findMany({ where: { status: "APPROVED" } }),
+    publishedPapersForInvite(prisma),
   ]);
-  const fixedPapers = versions.filter((version) => version.tasks.every((task) => !task.sourceId));
   const plans = tracks.map((track) => {
     const plan = planTrackItems(track, items, new Set());
     return {
@@ -42,11 +38,10 @@ export default async function InvitePage() {
         Candidate access
       </p>
       <h1 className="mt-2 font-serif text-4xl text-staff-strong">Invite a candidate</h1>
-        <p className="mt-4 text-sm leading-6 text-staff-body">
-        After you save, the candidate is emailed the test link. Choose a role
-        and level and the system builds that paper: shared aptitude, shared
-        problem solving, then that role’s questions. A paper already sent does
-        not change later.
+      <p className="mt-4 text-sm leading-6 text-staff-body">
+        Choose a role to build a 60-minute paper from the question bank, or choose a
+        staff paper made in Assessment designer. A paper already sent does not change
+        later.
       </p>
       {mailConfigured() ? (
         <p className="mt-3 text-sm text-staff-muted">
@@ -99,10 +94,7 @@ export default async function InvitePage() {
             value: track.code,
             label: `${track.roleName} — ${track.level}`,
           }))}
-          papers={fixedPapers.map((version) => ({
-            value: version.id,
-            label: `${version.assessment.name} · v${version.version} · ${version.tasks.length} tasks`,
-          }))}
+          papers={papers}
         />
         <SubmitButton
           pendingText="Building the paper…"
@@ -110,19 +102,17 @@ export default async function InvitePage() {
         >
           Send invitation email
         </SubmitButton>
-        {fixedPapers.length === 0 && tracks.length === 0 ? (
+        {tracks.length === 0 ? (
           <p className="text-sm text-staff-accent">
             Import the content library before inviting.
           </p>
         ) : null}
       </form>
       <section className="mt-10">
-        <h2 className="font-serif text-2xl text-staff-strong">Paper each role will build</h2>
+        <h2 className="font-serif text-2xl text-staff-strong">If you select a role</h2>
         <p className="mt-2 text-sm leading-6 text-staff-body">
-          Each paper is sized for 60 minutes: about 15 minutes aptitude, 15 minutes
-          problem solving, and 30 minutes role tasks. The rest of the bank stays
-          unused. Changing the library later does not change a link that was already
-          created.
+          The system builds a 60-minute paper from the bank: about 15 minutes aptitude,
+          15 minutes problem solving, and 30 minutes role tasks.
         </p>
         <table className="mt-4 w-full text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.14em] text-staff-muted">

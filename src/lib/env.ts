@@ -1,3 +1,5 @@
+import { COMPANY_NAME } from "./invite-email";
+
 function runtimeEnv(parts: string[]) {
   // Joined at runtime so the production build does not freeze a missing value.
   // Vercel secrets are available when the site runs, not while it is building.
@@ -35,6 +37,6 @@ export function smtpConfig() {
     user: runtimeEnv(["SMTP", "USER"])?.trim() || "",
     pass: runtimeEnv(["SMTP", "PASS"])?.trim() || "",
     from: runtimeEnv(["MAIL", "FROM"])?.trim() || "",
-    fromName: runtimeEnv(["SMTP", "FROM", "NAME"])?.trim() || "Transform Solution",
+    fromName: runtimeEnv(["SMTP", "FROM", "NAME"])?.trim() || COMPANY_NAME,
   };
 }

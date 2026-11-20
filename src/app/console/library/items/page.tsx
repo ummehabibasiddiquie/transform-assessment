@@ -20,7 +20,7 @@ export default async function LibraryItemsPage({
   });
 
   return (
-    <div className="max-w-4xl space-y-8">
+    <div className="w-full space-y-8">
       <div>
         <Link href="/console/library" className="text-sm text-staff-accent">
           Content library

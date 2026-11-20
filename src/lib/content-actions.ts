@@ -6,6 +6,9 @@ import { prisma } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { requireStaff } from "@/lib/access";
 import { cloneAssessmentVersion, getOrCreateDraft } from "@/lib/versioning";
+import { createBlankPaper, createNamedPaper, designerUrl } from "@/lib/papers";
+import { parseChoices } from "@/lib/question-shape";
+import { optionsJsonFor } from "@/lib/question-sheet";
 
 async function staffOrLogin() {
   return requireStaff("editAssessment");
@@ -15,8 +18,49 @@ function field(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
 }
 
-export async function startTemplateDraft(assessmentId: string) {
+function backToDesigner(formData: FormData, paperId?: string, extra?: string) {
+  const trackCode = field(formData, "trackCode");
+  const paper = paperId || field(formData, "paperId") || field(formData, "assessmentId");
+  const returnTo = field(formData, "returnTo");
+  if (returnTo.startsWith("/console/")) return returnTo;
+  if (trackCode) return designerUrl(trackCode, paper, extra);
+  if (paper) return designerUrl(undefined, paper, extra);
+  return "/console/assessment";
+}
+
+export async function createRolePaper(formData: FormData) {
   const staff = await staffOrLogin();
+  const trackCode = field(formData, "trackCode");
+  const title = field(formData, "title");
+  if (!trackCode) throw new Error("Choose a role first.");
+  const { assessment } = await createNamedPaper(prisma, trackCode, title);
+  await audit({
+    actorId: staff.userId,
+    action: "CREATE_PAPER",
+    entity: "Assessment",
+    entityId: assessment.id,
+    metadata: { trackCode, title: assessment.name },
+  });
+  redirect(designerUrl(trackCode, assessment.id, "created"));
+}
+
+export async function createCustomBlankPaper(formData: FormData) {
+  const staff = await staffOrLogin();
+  const title = field(formData, "title");
+  const assessment = await createBlankPaper(prisma, title);
+  await audit({
+    actorId: staff.userId,
+    action: "CREATE_BLANK_PAPER",
+    entity: "Assessment",
+    entityId: assessment.id,
+    metadata: { title: assessment.name },
+  });
+  redirect(designerUrl(undefined, assessment.id, "created"));
+}
+
+export async function startTemplateDraft(formData: FormData) {
+  const staff = await staffOrLogin();
+  const assessmentId = field(formData, "assessmentId");
   const draft = await getOrCreateDraft(assessmentId);
   await audit({
     actorId: staff.userId,
@@ -24,11 +68,12 @@ export async function startTemplateDraft(assessmentId: string) {
     entity: "AssessmentVersion",
     entityId: draft.id,
   });
-  redirect("/console/assessment");
+  redirect(backToDesigner(formData, assessmentId, "draft"));
 }
 
-export async function publishDraft(versionId: string) {
+export async function publishDraft(formData: FormData) {
   const staff = await staffOrLogin();
+  const versionId = field(formData, "versionId");
   const version = await prisma.assessmentVersion.findUnique({
     where: { id: versionId },
     include: { tasks: true },
@@ -37,7 +82,7 @@ export async function publishDraft(versionId: string) {
     throw new Error("Only a draft can be published.");
   }
   if (version.tasks.length === 0) {
-    throw new Error("Add at least one task before publishing.");
+    throw new Error("Add at least one question before publishing.");
   }
 
   await prisma.assessmentVersion.updateMany({
@@ -55,7 +100,8 @@ export async function publishDraft(versionId: string) {
     entityId: versionId,
   });
   revalidatePath("/console/assessment");
-  redirect("/console/assessment");
+  revalidatePath("/console/candidates/new");
+  redirect(backToDesigner(formData, version.assessmentId, "published"));
 }
 
 export async function saveVersionCopy(formData: FormData) {
@@ -72,9 +118,13 @@ export async function saveVersionCopy(formData: FormData) {
       aiPolicy: field(formData, "aiPolicy"),
     },
   });
+  const title = field(formData, "title");
   await prisma.assessment.update({
     where: { id: version.assessmentId },
-    data: { durationMin: Math.min(Number(formData.get("durationMin") || 60) || 60, 60) },
+    data: {
+      name: title || undefined,
+      durationMin: Math.min(Number(formData.get("durationMin") || 60) || 60, 60),
+    },
   });
   await audit({
     actorId: staff.userId,
@@ -83,6 +133,7 @@ export async function saveVersionCopy(formData: FormData) {
     entityId: versionId,
   });
   revalidatePath("/console/assessment");
+  redirect(backToDesigner(formData, version.assessmentId, "saved"));
 }
 
 export async function saveTask(formData: FormData) {
@@ -100,17 +151,22 @@ export async function saveTask(formData: FormData) {
     throw new Error("Publish a new version if you need to change the shared paper.");
   }
 
+  const responseType = field(formData, "responseType") || task.responseType || "SHORT";
+  const options = String(formData.get("options") ?? "");
+  const choices = parseChoices(options);
   await prisma.task.update({
     where: { id: taskId },
     data: {
-      title: field(formData, "title") || "Untitled task",
-      family: field(formData, "family") || "CUSTOM",
+      title: field(formData, "title") || "Untitled question",
+      family: field(formData, "family") || (responseType === "PRACTICAL" ? "CUSTOM" : "Q"),
       instructions: field(formData, "instructions"),
       referenceMaterial: field(formData, "referenceMaterial"),
       evidenceNotes: field(formData, "evidenceNotes"),
       timeLimitMin: Number(formData.get("timeLimitMin") || 0) || null,
       aiAllowed: formData.get("aiAllowed") === "on",
-      responseType: "STRUCTURED",
+      searchAllowed: formData.get("aiAllowed") === "on",
+      responseType,
+      optionsJson: optionsJsonFor(responseType, options, choices),
     },
   });
   await audit({
@@ -124,7 +180,7 @@ export async function saveTask(formData: FormData) {
   redirect(
     candidateId
       ? `/console/candidates/${candidateId}/tasks`
-      : "/console/assessment",
+      : backToDesigner(formData, field(formData, "paperId")),
   );
 }
 
@@ -141,19 +197,24 @@ export async function createTask(formData: FormData) {
   }
   const nextSequence =
     version.tasks.reduce((max, task) => Math.max(max, task.sequence), 0) + 1;
+  const responseType = field(formData, "responseType") || "SHORT";
+  const options = String(formData.get("options") ?? "");
+  const choices = parseChoices(options);
   const task = await prisma.task.create({
     data: {
       assessmentVersionId: versionId,
       sequence: nextSequence,
-      
-      family: field(formData, "family") || "CUSTOM",
-      title: field(formData, "title") || "New task",
+      family: field(formData, "family") || (responseType === "PRACTICAL" ? "CUSTOM" : "Q"),
+      title: field(formData, "title") || "New question",
       instructions: field(formData, "instructions") || "Write the candidate instructions.",
       referenceMaterial: field(formData, "referenceMaterial"),
       evidenceNotes: field(formData, "evidenceNotes"),
       timeLimitMin: Number(formData.get("timeLimitMin") || 15) || 15,
       aiAllowed: formData.get("aiAllowed") === "on",
-      responseType: "STRUCTURED",
+      searchAllowed: formData.get("aiAllowed") === "on",
+      responseType,
+      optionsJson: optionsJsonFor(responseType, options, choices),
+      module: "ROLE",
     },
   });
   await audit({
@@ -165,7 +226,7 @@ export async function createTask(formData: FormData) {
   redirect(
     candidateId
       ? `/console/candidates/${candidateId}/tasks/${task.id}`
-      : `/console/assessment/tasks/${task.id}`,
+      : backToDesigner(formData, version.assessmentId),
   );
 }
 
@@ -205,7 +266,7 @@ export async function deleteTask(formData: FormData) {
   redirect(
     candidateId
       ? `/console/candidates/${candidateId}/tasks`
-      : "/console/assessment",
+      : backToDesigner(formData, task.assessmentVersion.assessmentId),
   );
 }
 

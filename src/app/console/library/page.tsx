@@ -2,7 +2,6 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/access";
 import { importLibraryFile } from "@/lib/library-actions";
-import { BANK_LABELS, type ContentBank } from "@/lib/library";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ConfirmForm } from "@/components/ConfirmForm";
 
@@ -18,29 +17,17 @@ export default async function LibraryPage({
   const latest = await prisma.libraryImport.findFirst({
     orderBy: { importedAt: "desc" },
   });
-  const [roleTracks, questions, roles, competencies, types, blueprints, items] = await Promise.all([
+  const [roleTracks, questions] = await Promise.all([
     prisma.assessmentTrack.count({ where: { status: "ACTIVE" } }),
     prisma.bankItem.count({ where: { status: "APPROVED" } }),
-    prisma.libraryRole.count(),
-    prisma.libraryCompetency.count(),
-    prisma.libraryAssessmentType.count(),
-    prisma.libraryBlueprint.count(),
-    prisma.libraryContentItem.groupBy({
-      by: ["bank"],
-      _count: { _all: true },
-    }),
   ]);
 
-  const byBank = Object.fromEntries(
-    items.map((row) => [row.bank, row._count._all]),
-  ) as Partial<Record<ContentBank, number>>;
-
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="w-full space-y-8">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-staff-muted">Question bank</p>
         <h1 className="mt-2 font-serif text-4xl text-staff-strong">Content library</h1>
-        <p className="mt-3 text-sm leading-6 text-staff-body">
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-staff-body">
           The uploaded Excel is stored in this system. Staff can open every role’s questions
           here, download the current library, or upload a replacement file. When you invite a
           candidate, the paper is built from this bank.
@@ -125,37 +112,6 @@ export default async function LibraryPage({
           <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">Questions in use</p>
           <p className="mt-2 font-serif text-3xl text-staff-strong">{questions}</p>
         </Link>
-        <Link className="rounded-lg border border-staff-line p-4 hover:bg-staff-hover" href="/console/library/roles">
-          <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">Role profiles in the workbook</p>
-          <p className="mt-2 font-serif text-3xl text-staff-strong">{roles}</p>
-        </Link>
-        <Link className="rounded-lg border border-staff-line p-4 hover:bg-staff-hover" href="/console/library/simulations">
-          <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">Work simulations</p>
-          <p className="mt-2 font-serif text-3xl text-staff-strong">{byBank.WORK_SIMULATION ?? 0}</p>
-        </Link>
-        <div className="rounded-lg border border-staff-line p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">Competencies</p>
-          <p className="mt-2 font-serif text-3xl text-staff-strong">{competencies}</p>
-        </div>
-        <div className="rounded-lg border border-staff-line p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-staff-muted">Role blueprints</p>
-          <p className="mt-2 font-serif text-3xl text-staff-strong">{blueprints}</p>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="font-serif text-2xl text-staff-strong">Banks</h2>
-        <ul className="mt-4 divide-y divide-staff-line rounded-lg border border-staff-line">
-          {(Object.keys(BANK_LABELS) as ContentBank[]).map((bank) => (
-            <li key={bank} className="flex items-center justify-between px-4 py-3 text-sm">
-              <Link className="text-staff-strong hover:underline" href={`/console/library/items?bank=${bank}`}>
-                {BANK_LABELS[bank]}
-              </Link>
-              <span className="text-staff-muted">{byBank[bank] ?? 0}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-xs text-staff-muted">{types} assessment types in the type library.</p>
       </section>
     </div>
   );

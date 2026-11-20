@@ -85,26 +85,20 @@ export function planTrackItems(
   return { aptitude, problemSolving, role };
 }
 
-export async function assembleTrackPaper(prisma: PrismaClient, trackCode: string, email: string) {
-  const track = await prisma.assessmentTrack.findUnique({ where: { code: trackCode } });
-  if (!track || track.status !== "ACTIVE") {
-    throw new Error("Choose an active role and level.");
-  }
+export function trackRoleLabel(track: { roleName: string; level: string }) {
+  return `${track.roleName} — ${track.level}`;
+}
 
-  const exposedRows = await prisma.questionExposure.findMany({
-    where: { email: email.toLowerCase() },
-    select: { sourceId: true },
-  });
-  const exposed = new Set(exposedRows.map((row) => row.sourceId));
-  const items = await prisma.bankItem.findMany({ where: { status: "APPROVED" } });
-  const { aptitude, problemSolving, role } = planTrackItems(track, items, exposed);
-
-  if (aptitude.length === 0 || problemSolving.length === 0 || role.length === 0) {
-    throw new Error("This role does not have approved common and role questions yet.");
-  }
-
-  const selected = [...aptitude, ...problemSolving, ...role];
-  const roleLabel = `${track.roleName} — ${track.level}`;
+export async function ensureRoleVersionForTrack(
+  prisma: PrismaClient,
+  track: {
+    roleName: string;
+    level: string;
+    parentProfile: string;
+    competencies: string;
+  },
+) {
+  const roleLabel = trackRoleLabel(track);
   let roleRecord = await prisma.role.findFirst({ where: { name: roleLabel } });
   if (!roleRecord) {
     roleRecord = await prisma.role.create({
@@ -152,6 +146,76 @@ export async function assembleTrackPaper(prisma: PrismaClient, trackCode: string
       })),
     });
   }
+  return roleVersion;
+}
+
+export async function writeItemsAsTasks(
+  prisma: PrismaClient,
+  versionId: string,
+  items: BankItem[],
+  email?: string,
+) {
+  for (const [index, item] of items.entries()) {
+    const common = item.module !== "ROLE";
+    const task = await prisma.task.create({
+      data: {
+        assessmentVersionId: versionId,
+        sequence: index + 1,
+        family: item.responseType === "PRACTICAL" ? "CUSTOM" : "Q",
+        title: item.title,
+        instructions: item.prompt,
+        referenceMaterial: "",
+        responseType: item.responseType,
+        timeLimitMin: item.timeLimitMin,
+        aiAllowed: common ? false : item.aiAllowed,
+        searchAllowed: common ? false : item.searchAllowed,
+        evidenceNotes: "",
+        module: item.module,
+        optionsJson: item.optionsJson,
+        competencyName: item.competency,
+        sourceId: item.sourceId,
+        isGate: item.isGate,
+      },
+    });
+    await prisma.taskKey.create({
+      data: {
+        taskId: task.id,
+        answerKey: item.answerKey,
+        rubric: item.rubric,
+        evidence: item.evidence,
+      },
+    });
+    if (email && item.sourceId) {
+      await prisma.questionExposure.upsert({
+        where: { email_sourceId: { email: email.toLowerCase(), sourceId: item.sourceId } },
+        update: {},
+        create: { email: email.toLowerCase(), sourceId: item.sourceId },
+      });
+    }
+  }
+}
+
+export async function assembleTrackPaper(prisma: PrismaClient, trackCode: string, email: string) {
+  const track = await prisma.assessmentTrack.findUnique({ where: { code: trackCode } });
+  if (!track || track.status !== "ACTIVE") {
+    throw new Error("Choose an active role and level.");
+  }
+
+  const exposedRows = await prisma.questionExposure.findMany({
+    where: { email: email.toLowerCase() },
+    select: { sourceId: true },
+  });
+  const exposed = new Set(exposedRows.map((row) => row.sourceId));
+  const items = await prisma.bankItem.findMany({ where: { status: "APPROVED" } });
+  const { aptitude, problemSolving, role } = planTrackItems(track, items, exposed);
+
+  if (aptitude.length === 0 || problemSolving.length === 0 || role.length === 0) {
+    throw new Error("This role does not have approved common and role questions yet.");
+  }
+
+  const selected = [...aptitude, ...problemSolving, ...role];
+  const roleLabel = trackRoleLabel(track);
+  const roleVersion = await ensureRoleVersionForTrack(prisma, track);
 
   let assessment = await prisma.assessment.findFirst({
     where: { roleVersionId: roleVersion.id, name: roleLabel },
@@ -187,42 +251,6 @@ export async function assembleTrackPaper(prisma: PrismaClient, trackCode: string
     },
   });
 
-  for (const [index, item] of selected.entries()) {
-    const common = item.module !== "ROLE";
-    const task = await prisma.task.create({
-      data: {
-        assessmentVersionId: version.id,
-        sequence: index + 1,
-        family: item.responseType === "PRACTICAL" ? "CUSTOM" : "Q",
-        title: item.title,
-        instructions: item.prompt,
-        referenceMaterial: "",
-        responseType: item.responseType,
-        timeLimitMin: item.timeLimitMin,
-        aiAllowed: common ? false : item.aiAllowed,
-        searchAllowed: common ? false : item.searchAllowed,
-        evidenceNotes: "",
-        module: item.module,
-        optionsJson: item.optionsJson,
-        competencyName: item.competency,
-        sourceId: item.sourceId,
-        isGate: item.isGate,
-      },
-    });
-    await prisma.taskKey.create({
-      data: {
-        taskId: task.id,
-        answerKey: item.answerKey,
-        rubric: item.rubric,
-        evidence: item.evidence,
-      },
-    });
-    await prisma.questionExposure.upsert({
-      where: { email_sourceId: { email: email.toLowerCase(), sourceId: item.sourceId } },
-      update: {},
-      create: { email: email.toLowerCase(), sourceId: item.sourceId },
-    });
-  }
-
+  await writeItemsAsTasks(prisma, version.id, selected, email);
   return version;
 }

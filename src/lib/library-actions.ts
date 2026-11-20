@@ -107,6 +107,12 @@ export async function importRoleQuestions(formData: FormData) {
   );
 }
 
+function consoleReturn(formData: FormData, fallback: string) {
+  const raw = String(formData.get("returnTo") ?? "");
+  if (raw.startsWith("/console/")) return raw;
+  return fallback;
+}
+
 export async function addBankQuestion(formData: FormData) {
   const staff = await requireStaff("editAssessment");
   const trackCode = String(formData.get("trackCode") ?? "").trim();
@@ -116,14 +122,15 @@ export async function addBankQuestion(formData: FormData) {
   const responseType = String(formData.get("responseType") ?? "MCQ");
   const answerKey = String(formData.get("answerKey") ?? "").trim();
   const choices = parseChoices(String(formData.get("options") ?? ""));
+  const back = consoleReturn(formData, "/console/library/configure");
   if (!title || !prompt) {
-    redirect("/console/library/configure?error=" + encodeURIComponent("Title and question text are required."));
+    redirect(`${back}${back.includes("?") ? "&" : "?"}error=` + encodeURIComponent("Title and question text are required."));
   }
   const track = trackCode
     ? await prisma.assessmentTrack.findUnique({ where: { code: trackCode } })
     : null;
   if (moduleName === "ROLE" && !track) {
-    redirect("/console/library/configure?error=" + encodeURIComponent("Choose a role for a role question."));
+    redirect(`${back}${back.includes("?") ? "&" : "?"}error=` + encodeURIComponent("Choose a role for a role question."));
   }
   const sourceId = `MANUAL-${Date.now()}`;
   await prisma.bankItem.create({
@@ -150,7 +157,28 @@ export async function addBankQuestion(formData: FormData) {
     entityId: sourceId,
     metadata: { module: moduleName, trackCode },
   });
-  redirect("/console/library/configure?saved=question");
+  redirect(back.includes("?") ? `${back}&saved=1` : `${back}?saved=1`);
+}
+
+export async function retireBankQuestion(formData: FormData) {
+  const staff = await requireStaff("editAssessment");
+  const id = String(formData.get("id") ?? "");
+  const back = consoleReturn(formData, "/console/assessment");
+  const item = await prisma.bankItem.findUnique({ where: { id } });
+  if (!item) {
+    redirect(`${back}${back.includes("?") ? "&" : "?"}error=` + encodeURIComponent("That question was not found."));
+  }
+  await prisma.bankItem.update({
+    where: { id },
+    data: { status: "RETIRED" },
+  });
+  await audit({
+    actorId: staff.userId,
+    action: "RETIRE_QUESTION",
+    entity: "BankItem",
+    entityId: item.sourceId,
+  });
+  redirect(back);
 }
 
 export async function saveBankQuestion(formData: FormData) {
@@ -191,6 +219,10 @@ export async function saveBankQuestion(formData: FormData) {
     entity: "BankItem",
     entityId: item.sourceId,
   });
+  const back = consoleReturn(formData, "");
+  if (back) {
+    redirect(back.includes("?") ? `${back}&saved=1` : `${back}?saved=1`);
+  }
   const role =
     item.module === "ROLE"
       ? (await prisma.assessmentTrack.findUnique({ where: { id: item.trackId ?? "" } }))?.code ?? "COMMON"
