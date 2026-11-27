@@ -6,7 +6,7 @@ import { RoleDurationForm } from "@/components/RoleDurationForm";
 export default async function LibraryQuestionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string }>;
 }) {
   await requireStaff("editAssessment");
   const query = await searchParams;
