@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/access";
 import { importRoleQuestions } from "@/lib/library-actions";
+import { RoleDurationForm } from "@/components/RoleDurationForm";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ConfirmForm } from "@/components/ConfirmForm";
 
@@ -42,15 +43,22 @@ export default async function ConfigureLibraryPage({
         </p>
       </div>
       {query.error ? <p className="text-sm text-staff-accent">{query.error}</p> : null}
-      {query.saved ? <p className="text-sm text-staff-muted">{query.saved}</p> : null}
+      {query.saved === "time" ? (
+        <p className="text-sm text-staff-muted">
+          Paper length saved. New invites for that role will use it.
+        </p>
+      ) : query.saved ? (
+        <p className="text-sm text-staff-muted">{query.saved === "track" ? "Role saved." : query.saved}</p>
+      ) : null}
 
       <section className="rounded-lg border border-staff-line p-5">
         <h2 className="font-serif text-2xl text-staff-strong">1. Download the template</h2>
         <p className="mt-2 text-sm leading-6 text-staff-body">
-          One row is one question. Repeat the role code, role name, and level on every
-          row. For aptitude and problem solving, use Role_Code COMMON and Module
-          COMMON_APTITUDE or COMMON_PROBLEM_SOLVING. Options go in one cell, each on its own
-          line, such as A. Yes. Delete the example rows before uploading.
+          The first sheet is Roles: one row per role, with Test_Min for that paper
+          (QA 40, Operations Executive 50, Manager 30). Common aptitude questions stay
+          on the COMMON sheet and do not get a paper length. Question sheets are the
+          items for each role. Time_Min is how long one question takes. Options go in
+          one cell, each on its own line. Delete the example rows before uploading.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <a
@@ -144,12 +152,17 @@ export default async function ConfigureLibraryPage({
 
       <section className="space-y-3">
         <h2 className="font-serif text-2xl text-staff-strong">Roles already loaded</h2>
+        <p className="text-sm leading-6 text-staff-body">
+          Set paper minutes on the role, not on common questions. Example: QA 40,
+          Operations Executive 50, Manager 30.
+        </p>
         <div className="overflow-hidden rounded-lg border border-staff-line">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-staff-line text-xs uppercase tracking-[0.14em] text-staff-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">Role</th>
                 <th className="px-4 py-3 font-medium">Level</th>
+                <th className="px-4 py-3 font-medium">Test</th>
                 <th className="px-4 py-3 font-medium">Questions</th>
                 <th className="px-4 py-3 font-medium">Open</th>
               </tr>
@@ -159,6 +172,13 @@ export default async function ConfigureLibraryPage({
                 <tr key={track.id} className="border-b border-staff-line last:border-0">
                   <td className="px-4 py-3 text-staff-strong">{track.roleName}</td>
                   <td className="px-4 py-3 text-staff-body">{track.level}</td>
+                  <td className="px-4 py-3 text-staff-body">
+                    <RoleDurationForm
+                      code={track.code}
+                      durationMin={track.durationMin}
+                      returnTo="/console/library/configure"
+                    />
+                  </td>
                   <td className="px-4 py-3 text-staff-body">{track._count.items}</td>
                   <td className="px-4 py-3">
                     <Link className="text-staff-accent" href={`/console/library/questions/role/${track.code}`}>

@@ -315,6 +315,7 @@ model AssessmentTrack {
   assessmentTypes  String     @default("")
   aiPolicy         String     @default("")
   criticalGates    String     @default("")
+  durationMin      Int        @default(60)
   status           String     @default("ACTIVE")
   items            BankItem[]
 }

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import * as XLSX from "xlsx";
+import { parseTestMinutes } from "./assemble";
 import { parseChoices } from "./question-shape";
 
 const RESPONSE_TYPES = new Set([
@@ -20,13 +21,30 @@ const RESPONSE_ALIASES: Record<string, string> = {
   WRITTEN: "SHORT",
 };
 
+function jsonSheetRows(sheet: XLSX.WorkSheet) {
+  return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: "",
+    raw: false,
+  });
+}
+
+function isRolesSheetName(name: string) {
+  return /^(roles|role_library|01_role_library)$/i.test(name.trim());
+}
+
+function isRolesSheet(name: string, rows: Record<string, unknown>[]) {
+  if (isRolesSheetName(name)) return true;
+  const hasRole = rows.some((row) => "Role_Code" in row || "Track_ID" in row);
+  const hasTest = rows.some((row) => "Test_Min" in row || "Paper_Min" in row || "Duration_Min" in row);
+  const hasQuestion = rows.some((row) => "Question" in row || "Prompt" in row);
+  return hasRole && hasTest && !hasQuestion;
+}
+
 export function isQuestionWorkbook(buffer: Buffer) {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   return workbook.SheetNames.some((name) => {
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[name], {
-      defval: "",
-      raw: false,
-    });
+    const rows = jsonSheetRows(workbook.Sheets[name]);
+    if (isRolesSheet(name, rows)) return true;
     return rows.some((row) => "Question" in row && "Role_Code" in row && "Module" in row);
   });
 }
@@ -67,14 +85,23 @@ function sheetRows(buffer: Buffer) {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const rows: { sheet: string; line: number; row: Record<string, unknown> }[] = [];
   for (const name of workbook.SheetNames) {
-    const sheetRowsList = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[name], {
-      defval: "",
-      raw: false,
-    });
+    const sheetRowsList = jsonSheetRows(workbook.Sheets[name]);
+    if (isRolesSheet(name, sheetRowsList)) continue;
     const isQuestionSheet = sheetRowsList.some(
       (row) => "Question" in row || "Prompt" in row || "Item_ID" in row,
     );
     if (!isQuestionSheet) continue;
+    sheetRowsList.forEach((row, index) => rows.push({ sheet: name, line: index + 2, row }));
+  }
+  return rows;
+}
+
+function roleLibraryRows(buffer: Buffer) {
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const rows: { sheet: string; line: number; row: Record<string, unknown> }[] = [];
+  for (const name of workbook.SheetNames) {
+    const sheetRowsList = jsonSheetRows(workbook.Sheets[name]);
+    if (!isRolesSheet(name, sheetRowsList)) continue;
     sheetRowsList.forEach((row, index) => rows.push({ sheet: name, line: index + 2, row }));
   }
   return rows;
@@ -96,6 +123,7 @@ export function questionTemplateBuffer() {
       Competency: "Accuracy",
       Difficulty: "2",
       Time_Min: "2",
+      Test_Min: "60",
       AI_Allowed: "No",
       Search_Allowed: "No",
       Status: "Active",
@@ -114,6 +142,7 @@ export function questionTemplateBuffer() {
       Competency: "Problem solving",
       Difficulty: "3",
       Time_Min: "6",
+      Test_Min: "60",
       AI_Allowed: "Yes",
       Search_Allowed: "No",
       Status: "Active",
@@ -132,6 +161,7 @@ export function questionTemplateBuffer() {
       Competency: "Accuracy",
       Difficulty: "2",
       Time_Min: "3",
+      Test_Min: "60",
       AI_Allowed: "No",
       Search_Allowed: "No",
       Status: "Active",
@@ -150,10 +180,13 @@ export function questionTemplateBuffer() {
       Competency: "Judgement",
       Difficulty: "2",
       Time_Min: "4",
+      Test_Min: "60",
       AI_Allowed: "No",
       Search_Allowed: "No",
       Status: "Active",
     },
+  ];
+  const commonRows = [
     {
       Item_ID: "APT-EXAMPLE-1",
       Role_Code: "COMMON",
@@ -191,13 +224,23 @@ export function questionTemplateBuffer() {
       Status: "Active",
     },
   ];
-  const sheet = XLSX.utils.json_to_sheet(rows);
-  sheet["!cols"] = rows[0]
-    ? Object.keys(rows[0]).map((key) => ({ wch: Math.max(key.length + 2, 18) }))
-    : [];
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, sheet, "Questions");
-  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  return questionsWorkbook([
+    {
+      name: "Roles",
+      rows: [
+        { Role_Code: "TR-QUAL-13", Role_Name: "QA Analyst", Level: "Experienced", Test_Min: "40" },
+        {
+          Role_Code: "TR-OE-13",
+          Role_Name: "Operations Executive",
+          Level: "Experienced",
+          Test_Min: "50",
+        },
+        { Role_Code: "TR-PM-M", Role_Name: "Project Manager", Level: "Experienced", Test_Min: "30" },
+      ],
+    },
+    { name: "Questions", rows },
+    { name: "COMMON", rows: commonRows },
+  ]);
 }
 
 export async function importQuestionSheet(
@@ -206,6 +249,7 @@ export async function importQuestionSheet(
   mode: ImportMode = "add",
 ): Promise<QuestionSheetResult> {
   const rows = sheetRows(buffer);
+  const roleRows = roleLibraryRows(buffer);
   const result: QuestionSheetResult = {
     roles: 0,
     created: 0,
@@ -215,15 +259,58 @@ export async function importQuestionSheet(
     sections: [],
     errors: [],
   };
-  if (rows.length === 0) {
-    result.errors.push("The file has no question rows.");
+  if (rows.length === 0 && roleRows.length === 0) {
+    result.errors.push("The file has no Roles sheet and no question rows.");
     return result;
   }
 
   const tracks = new Map<string, string>();
   const trackNames = new Map<string, string>();
+  const trackDurations = new Map<string, number>();
   const sections = new Map<string, { module: string; trackId: string | null; sourceIds: string[] }>();
   let seenRole = 0;
+
+  for (const { sheet, line: sheetLine, row } of roleRows) {
+    const line = `${sheet} row ${sheetLine}`;
+    const roleCode = cell(row, "Role_Code", "Track_ID");
+    const roleName = cell(row, "Role_Name", "Role");
+    const level = cell(row, "Level");
+    const testMin = parseTestMinutes(cell(row, "Test_Min", "Paper_Min", "Duration_Min"));
+    if (!roleCode || roleCode === "COMMON") continue;
+    if (!roleName || !level) {
+      result.errors.push(`${line}: Role_Name and Level are required on the Roles sheet.`);
+      continue;
+    }
+    const existing = await prisma.assessmentTrack.findUnique({ where: { code: roleCode } });
+    if (existing) {
+      await prisma.assessmentTrack.update({
+        where: { id: existing.id },
+        data: {
+          roleName,
+          level,
+          ...(testMin ? { durationMin: testMin } : {}),
+          status: "ACTIVE",
+        },
+      });
+      tracks.set(roleCode, existing.id);
+      trackNames.set(existing.id, `${roleName} — ${level}`);
+      if (testMin) trackDurations.set(existing.id, testMin);
+    } else {
+      const created = await prisma.assessmentTrack.create({
+        data: {
+          code: roleCode,
+          roleName,
+          level,
+          status: "ACTIVE",
+          durationMin: testMin ?? 60,
+        },
+      });
+      tracks.set(roleCode, created.id);
+      trackNames.set(created.id, `${roleName} — ${level}`);
+      if (testMin) trackDurations.set(created.id, testMin);
+      seenRole += 1;
+    }
+  }
 
   for (const { sheet, line: sheetLine, row } of rows) {
     const line = `${sheet} row ${sheetLine}`;
@@ -233,6 +320,7 @@ export async function importQuestionSheet(
     const level = cell(row, "Level");
     const title = cell(row, "Title");
     const prompt = cell(row, "Question", "Prompt");
+    const testMin = parseTestMinutes(cell(row, "Test_Min", "Paper_Min", "Duration_Min"));
     if (!roleCode || !title || !prompt) {
       result.errors.push(`${line}: Role_Code, Title, and Question are required.`);
       continue;
@@ -247,19 +335,26 @@ export async function importQuestionSheet(
       const existing = await prisma.assessmentTrack.findUnique({ where: { code: roleCode } });
       if (existing) {
         trackId = existing.id;
-        if (roleName || level) {
+        if (roleName || level || testMin) {
           await prisma.assessmentTrack.update({
             where: { id: existing.id },
             data: {
               roleName: roleName || existing.roleName,
               level: level || existing.level,
+              ...(testMin ? { durationMin: testMin } : {}),
               status: "ACTIVE",
             },
           });
         }
       } else if (roleName && level) {
         const created = await prisma.assessmentTrack.create({
-          data: { code: roleCode, roleName, level, status: "ACTIVE" },
+          data: {
+            code: roleCode,
+            roleName,
+            level,
+            status: "ACTIVE",
+            durationMin: testMin ?? 60,
+          },
         });
         trackId = created.id;
         seenRole += 1;
@@ -270,6 +365,10 @@ export async function importQuestionSheet(
       tracks.set(roleCode, trackId);
       const track = await prisma.assessmentTrack.findUnique({ where: { id: trackId } });
       trackNames.set(trackId, track ? `${track.roleName} — ${track.level}` : roleCode);
+    }
+
+    if (moduleName === "ROLE" && testMin && tracks.get(roleCode)) {
+      trackDurations.set(tracks.get(roleCode)!, testMin);
     }
 
     const requestedType =
@@ -313,6 +412,13 @@ export async function importQuestionSheet(
       await prisma.bankItem.create({ data: { sourceId, ...data } });
       result.created += 1;
     }
+  }
+
+  for (const [trackId, durationMin] of trackDurations) {
+    await prisma.assessmentTrack.update({
+      where: { id: trackId },
+      data: { durationMin },
+    });
   }
 
   result.sections = [...sections.values()].map((section) =>
@@ -432,7 +538,20 @@ export async function roleQuestionsBuffer(prisma: PrismaClient, roleCode: string
     include: { items: { orderBy: { sourceId: "asc" } } },
   });
   if (!track) return null;
-  return questionsWorkbook([{ name: "Questions", rows: questionRows(track.items, track) }]);
+  return questionsWorkbook([
+    {
+      name: "Roles",
+      rows: [
+        {
+          Role_Code: track.code,
+          Role_Name: track.roleName,
+          Level: track.level,
+          Test_Min: track.durationMin,
+        },
+      ],
+    },
+    { name: "Questions", rows: questionRows(track.items, track) },
+  ]);
 }
 
 async function libraryBuffer(prisma: PrismaClient) {
@@ -447,40 +566,117 @@ async function libraryBuffer(prisma: PrismaClient) {
       include: { items: { where: { status: "APPROVED" }, orderBy: { sourceId: "asc" } } },
     }),
   ]);
+  const used = new Set<string>(["Roles", "COMMON"]);
   return questionsWorkbook([
+    {
+      name: "Roles",
+      rows: tracks.map((track) => ({
+        Role_Code: track.code,
+        Role_Name: track.roleName,
+        Level: track.level,
+        Test_Min: track.durationMin,
+      })),
+    },
     { name: "COMMON", rows: questionRows(common, COMMON_TRACK) },
     ...tracks.map((track) => ({
-      name: track.code.replace(/[\\/?*[\]:]/g, "-").slice(0, 31),
+      name: uniqueSheetName(`${track.roleName} ${track.level}`, used),
       rows: questionRows(track.items, track),
     })),
   ]);
 }
 
-function questionsWorkbook(sheets: { name: string; rows: ReturnType<typeof questionRows> }[]) {
+function uniqueSheetName(label: string, used: Set<string>) {
+  const base = label.replace(/[\\/?*[\]:]/g, "-").trim().slice(0, 31) || "Role";
+  let name = base;
+  let n = 2;
+  while (used.has(name)) {
+    const suffix = ` ${n}`;
+    name = `${base.slice(0, Math.max(1, 31 - suffix.length))}${suffix}`;
+    n += 1;
+  }
+  used.add(name);
+  return name;
+}
+
+function questionsWorkbook(sheets: { name: string; rows: Record<string, unknown>[] }[]) {
   const workbook = XLSX.utils.book_new();
   for (const sheet of sheets) {
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(sheet.rows), sheet.name);
+    const table =
+      sheet.rows.length > 0
+        ? XLSX.utils.json_to_sheet(sheet.rows)
+        : XLSX.utils.aoa_to_sheet([
+            sheet.name === "Roles"
+              ? ["Role_Code", "Role_Name", "Level", "Test_Min"]
+              : sheet.name === "COMMON"
+                ? [
+                    "Item_ID",
+                    "Role_Code",
+                    "Role_Name",
+                    "Level",
+                    "Module",
+                    "Response_Type",
+                    "Title",
+                    "Question",
+                    "Options",
+                    "Answer_Key",
+                    "Competency",
+                    "Difficulty",
+                    "Time_Min",
+                    "AI_Allowed",
+                    "Search_Allowed",
+                    "Status",
+                  ]
+                : [
+                    "Item_ID",
+                    "Role_Code",
+                    "Role_Name",
+                    "Level",
+                    "Module",
+                    "Response_Type",
+                    "Title",
+                    "Question",
+                    "Options",
+                    "Answer_Key",
+                    "Competency",
+                    "Difficulty",
+                    "Time_Min",
+                    "Test_Min",
+                    "AI_Allowed",
+                    "Search_Allowed",
+                    "Status",
+                  ],
+          ]);
+    XLSX.utils.book_append_sheet(workbook, table, sheet.name.slice(0, 31));
   }
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 
-function questionRows(items: BankRow[], track: { code: string; roleName: string; level: string }) {
-  return items.map((item) => ({
-    Item_ID: item.sourceId,
-    Role_Code: track.code,
-    Role_Name: track.roleName,
-    Level: track.level,
-    Module: item.module,
-    Response_Type: item.responseType,
-    Title: item.title,
-    Question: item.prompt,
-    Options: optionsText(item.optionsJson),
-    Answer_Key: item.answerKey,
-    Competency: item.competency,
-    Difficulty: item.difficulty,
-    Time_Min: item.timeLimitMin ?? "",
-    AI_Allowed: item.aiAllowed ? "Yes" : "No",
-    Search_Allowed: item.searchAllowed ? "Yes" : "No",
-    Status: item.status === "RETIRED" ? "Retired" : "Active",
-  }));
+function questionRows(
+  items: BankRow[],
+  track: { code: string; roleName: string; level: string; durationMin?: number },
+) {
+  return items.map((item) => {
+    const row: Record<string, unknown> = {
+      Item_ID: item.sourceId,
+      Role_Code: track.code,
+      Role_Name: track.roleName,
+      Level: track.level,
+      Module: item.module,
+      Response_Type: item.responseType,
+      Title: item.title,
+      Question: item.prompt,
+      Options: optionsText(item.optionsJson),
+      Answer_Key: item.answerKey,
+      Competency: item.competency,
+      Difficulty: item.difficulty,
+      Time_Min: item.timeLimitMin ?? "",
+      AI_Allowed: item.aiAllowed ? "Yes" : "No",
+      Search_Allowed: item.searchAllowed ? "Yes" : "No",
+      Status: item.status === "RETIRED" ? "Retired" : "Active",
+    };
+    if (track.code !== "COMMON") {
+      row.Test_Min = track.durationMin ?? 60;
+    }
+    return row;
+  });
 }

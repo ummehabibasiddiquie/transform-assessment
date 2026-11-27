@@ -315,6 +315,7 @@ model AssessmentTrack {
   assessmentTypes  String     @default(dbgenerated("('')")) @db.Text
   aiPolicy         String     @default(dbgenerated("('')")) @db.Text
   criticalGates    String     @default(dbgenerated("('')")) @db.Text
+  durationMin      Int        @default(60)
   status           String     @default("ACTIVE")
   items            BankItem[]
 }

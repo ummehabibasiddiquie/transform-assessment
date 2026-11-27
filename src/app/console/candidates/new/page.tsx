@@ -26,6 +26,10 @@ export default async function InvitePage() {
       code: track.code,
       roleName: track.roleName,
       level: track.level,
+      duration: plan.duration,
+      aptitudeMin: plan.aptitudeMin,
+      problemSolvingMin: plan.problemSolvingMin,
+      roleMin: plan.roleMin,
       aptitude: plan.aptitude.length,
       problemSolving: plan.problemSolving.length,
       role: plan.role.length,
@@ -39,9 +43,9 @@ export default async function InvitePage() {
       </p>
       <h1 className="mt-2 font-serif text-4xl text-staff-strong">Invite a candidate</h1>
       <p className="mt-4 text-sm leading-6 text-staff-body">
-        Choose a role to build a 60-minute paper from the question bank, or choose a
-        staff paper made in Assessment designer. A paper already sent does not change
-        later.
+        Choose a role to build a paper from the question bank (length comes from Test_Min
+        on that role in Excel, 60 minutes if blank), or choose a staff paper made in
+        Assessment designer. A paper already sent does not change later.
       </p>
       {mailConfigured() ? (
         <p className="mt-3 text-sm text-staff-muted">
@@ -111,13 +115,14 @@ export default async function InvitePage() {
       <section className="mt-10">
         <h2 className="font-serif text-2xl text-staff-strong">If you select a role</h2>
         <p className="mt-2 text-sm leading-6 text-staff-body">
-          The system builds a 60-minute paper from the bank: about 15 minutes aptitude,
-          15 minutes problem solving, and 30 minutes role tasks.
+          Each role uses its Excel Test_Min. The mix stays the same share as a 60-minute
+          paper: about a quarter aptitude, a quarter problem solving, and half role tasks.
         </p>
         <table className="mt-4 w-full text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.14em] text-staff-muted">
             <tr>
               <th className="py-2 pr-3 font-medium">Role and level</th>
+              <th className="py-2 pr-3 font-medium">Test</th>
               <th className="py-2 pr-3 font-medium">Aptitude</th>
               <th className="py-2 pr-3 font-medium">Problem solving</th>
               <th className="py-2 font-medium">Role tasks</th>
@@ -129,9 +134,16 @@ export default async function InvitePage() {
                 <td className="py-2 pr-3">
                   {plan.roleName} — {plan.level}
                 </td>
-                <td className="py-2 pr-3">{plan.aptitude}</td>
-                <td className="py-2 pr-3">{plan.problemSolving}</td>
-                <td className="py-2">{plan.role}</td>
+                <td className="py-2 pr-3">{plan.duration} min</td>
+                <td className="py-2 pr-3">
+                  {plan.aptitude} ({plan.aptitudeMin} min)
+                </td>
+                <td className="py-2 pr-3">
+                  {plan.problemSolving} ({plan.problemSolvingMin} min)
+                </td>
+                <td className="py-2">
+                  {plan.role} ({plan.roleMin} min)
+                </td>
               </tr>
             ))}
           </tbody>

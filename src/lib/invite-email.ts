@@ -51,9 +51,13 @@ export function formatCompleteBy(value: string) {
 }
 
 export const TEST_DURATION_MIN = 60;
+export const MAX_TEST_DURATION_MIN = 120;
 
 export function formatDuration(minutes: number) {
-  const value = Math.min(Math.max(minutes || TEST_DURATION_MIN, 1), TEST_DURATION_MIN);
+  const value = Math.min(
+    Math.max(minutes || TEST_DURATION_MIN, 1),
+    MAX_TEST_DURATION_MIN,
+  );
   return `${value} minutes`;
 }
 

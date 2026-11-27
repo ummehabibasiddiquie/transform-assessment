@@ -6,6 +6,7 @@ import { requireStaff } from "@/lib/access";
 import { audit } from "@/lib/audit";
 import { importContentLibrary } from "@/lib/library-import";
 import { parseChoices } from "@/lib/question-shape";
+import { parseTestMinutes } from "@/lib/assemble";
 import { importQuestionSheet, optionsJsonFor } from "@/lib/question-sheet";
 
 export async function importLibraryFile(formData: FormData) {
@@ -54,6 +55,28 @@ export async function addTrack(formData: FormData) {
     metadata: { roleName, level },
   });
   redirect("/console/library/configure?saved=track");
+}
+
+export async function saveTrackDuration(formData: FormData) {
+  await requireStaff("editAssessment");
+  const code = String(formData.get("code") ?? "").trim();
+  const durationMin = parseTestMinutes(String(formData.get("durationMin") ?? ""));
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const fallback = `/console/library/questions/role/${code}`;
+  const back = returnTo.startsWith("/console/library") ? returnTo : fallback;
+  if (!code || !durationMin) {
+    const error = encodeURIComponent("Enter a paper length between 15 and 120 minutes for this role.");
+    redirect(back.includes("?") ? `${back}&error=${error}` : `${back}?error=${error}`);
+  }
+  const track = await prisma.assessmentTrack.findUnique({ where: { code } });
+  if (!track) {
+    redirect("/console/library/questions?error=" + encodeURIComponent("That role was not found."));
+  }
+  await prisma.assessmentTrack.update({
+    where: { code },
+    data: { durationMin },
+  });
+  redirect(back.includes("?") ? `${back}&saved=time` : `${back}?saved=time`);
 }
 
 export async function importRoleQuestions(formData: FormData) {

@@ -154,7 +154,7 @@ export async function createNamedPaper(prisma: PrismaClient, trackCode: string, 
     data: {
       roleVersionId: roleVersion.id,
       name,
-      durationMin: TEST_DURATION_MIN,
+      durationMin: track.durationMin || TEST_DURATION_MIN,
       status: "PUBLISHED",
     },
   });

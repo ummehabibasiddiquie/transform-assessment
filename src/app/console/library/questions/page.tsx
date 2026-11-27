@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/access";
+import { RoleDurationForm } from "@/components/RoleDurationForm";
 
 export default async function LibraryQuestionsPage({
   searchParams,
@@ -38,6 +39,12 @@ export default async function LibraryQuestionsPage({
             Last loaded file: {latest.fileName} · {latest.importedAt.toLocaleString()}
           </p>
         ) : null}
+        {query.saved === "time" ? (
+          <p className="mt-2 text-sm text-staff-muted">
+            Paper length saved. New invites for that role will use it. Common questions stay
+            shared.
+          </p>
+        ) : null}
       </div>
       {query.error ? <p className="text-sm text-staff-accent">{query.error}</p> : null}
 
@@ -55,6 +62,10 @@ export default async function LibraryQuestionsPage({
 
       <section className="space-y-3">
         <h2 className="font-serif text-2xl text-staff-strong">Common (all roles)</h2>
+        <p className="text-sm leading-6 text-staff-body">
+          These questions are shared. They do not have a test length. Set minutes on each
+          role below (for example QA 40, Operations Executive 50, Manager 30).
+        </p>
         <div className="overflow-hidden rounded-lg border border-staff-line">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-staff-line text-xs uppercase tracking-[0.14em] text-staff-muted">
@@ -89,13 +100,18 @@ export default async function LibraryQuestionsPage({
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-serif text-2xl text-staff-strong">Role files</h2>
+        <h2 className="font-serif text-2xl text-staff-strong">Roles — set paper length here</h2>
+        <p className="text-sm leading-6 text-staff-body">
+          Each role can have a different paper: QA 40 minutes, Operations Executive 50,
+          Manager 30, and so on. New invites pick questions to fit that time.
+        </p>
         <div className="overflow-hidden rounded-lg border border-staff-line">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-staff-line text-xs uppercase tracking-[0.14em] text-staff-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">Role</th>
                 <th className="px-4 py-3 font-medium">Level</th>
+                <th className="px-4 py-3 font-medium">Test</th>
                 <th className="px-4 py-3 font-medium">Questions</th>
                 <th className="px-4 py-3 font-medium"></th>
               </tr>
@@ -105,6 +121,13 @@ export default async function LibraryQuestionsPage({
                 <tr key={track.id} className="border-b border-staff-line last:border-0">
                   <td className="px-4 py-3 text-staff-strong">{track.roleName}</td>
                   <td className="px-4 py-3 text-staff-body">{track.level}</td>
+                  <td className="px-4 py-3">
+                    <RoleDurationForm
+                      code={track.code}
+                      durationMin={track.durationMin}
+                      returnTo="/console/library/questions"
+                    />
+                  </td>
                   <td className="px-4 py-3">{track._count.items}</td>
                   <td className="px-4 py-3">
                     <Link className="text-staff-accent" href={`/console/library/questions/role/${track.code}`}>

@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { parseTestMinutes } from "./assemble";
 import { parseChoices } from "./question-shape";
 
 type Row = Record<string, string>;
@@ -61,6 +62,7 @@ export async function syncV4Bank(
         assessmentTypes: field(row, "Primary_Assessment_Types"),
         aiPolicy: field(row, "AI_Policy"),
         criticalGates: field(row, "Critical_Gates"),
+        durationMin: parseTestMinutes(field(row, "Test_Min", "Duration_Min", "Paper_Min")) ?? 60,
         status: "ACTIVE",
       },
     });

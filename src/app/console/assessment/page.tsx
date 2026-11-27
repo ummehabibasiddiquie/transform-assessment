@@ -12,7 +12,7 @@ import {
   startTemplateDraft,
 } from "@/lib/content-actions";
 import { customPapers, papersForTrack, publishedPapersForDesigner } from "@/lib/papers";
-import { TEST_DURATION_MIN } from "@/lib/invite-email";
+import { MAX_TEST_DURATION_MIN } from "@/lib/invite-email";
 import type { Assessment, AssessmentVersion, Task } from "@prisma/client";
 
 type Paper = Assessment & { versions: (AssessmentVersion & { tasks: Task[] })[] };
@@ -94,7 +94,7 @@ function PaperEditor({
             name="durationMin"
             type="number"
             min={10}
-            max={TEST_DURATION_MIN}
+            max={MAX_TEST_DURATION_MIN}
             defaultValue={paper.durationMin}
             disabled={!canEdit}
             className={inputClass}

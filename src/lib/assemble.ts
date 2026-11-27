@@ -1,5 +1,28 @@
 import type { BankItem, PrismaClient } from "@prisma/client";
-import { TEST_DURATION_MIN } from "./invite-email";
+import { MAX_TEST_DURATION_MIN, TEST_DURATION_MIN } from "./invite-email";
+
+const MIN_TEST_DURATION_MIN = 15;
+
+export function clampTestMinutes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return TEST_DURATION_MIN;
+  return Math.min(MAX_TEST_DURATION_MIN, Math.max(MIN_TEST_DURATION_MIN, Math.round(value)));
+}
+
+export function parseTestMinutes(raw: string) {
+  const text = raw.trim();
+  if (!text) return null;
+  const value = Number(text);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return clampTestMinutes(value);
+}
+
+export function paperMinuteSplit(totalMin: number) {
+  const duration = clampTestMinutes(totalMin);
+  const aptitude = Math.max(1, Math.round((duration * 15) / TEST_DURATION_MIN));
+  const problemSolving = Math.max(1, Math.round((duration * 15) / TEST_DURATION_MIN));
+  const role = Math.max(1, duration - aptitude - problemSolving);
+  return { duration, aptitude, problemSolving, role };
+}
 
 function targetDifficulty(level: string) {
   const text = level.toLowerCase();
@@ -48,10 +71,11 @@ function byDifficulty(items: BankItem[], level: string) {
 }
 
 export function planTrackItems(
-  track: { id: string; code: string; level: string },
+  track: { id: string; code: string; level: string; durationMin?: number },
   items: BankItem[],
   exposed: Set<string>,
 ) {
+  const split = paperMinuteSplit(track.durationMin ?? TEST_DURATION_MIN);
   const approved = items.filter((item) => item.status === "APPROVED");
   const aptitudePool = byDifficulty(
     approved.filter((item) => item.module === "COMMON_APTITUDE"),
@@ -67,7 +91,7 @@ export function planTrackItems(
       : aptitudePreferred.length > 0
         ? aptitudePreferred
         : aptitudePool;
-  const aptitude = pickUntilMinutes(aptitudeSource, 15, exposed);
+  const aptitude = pickUntilMinutes(aptitudeSource, split.aptitude, exposed);
   const problemSolvingPool = byDifficulty(
     approved.filter((item) => item.module === "COMMON_PROBLEM_SOLVING"),
     track.level,
@@ -75,14 +99,22 @@ export function planTrackItems(
   const problemSolvingUploaded = problemSolvingPool.filter((item) => item.bank === "UPLOAD");
   const problemSolvingSource =
     problemSolvingUploaded.length > 0 ? problemSolvingUploaded : problemSolvingPool;
-  const problemSolving = pickUntilMinutes(problemSolvingSource, 15, exposed);
+  const problemSolving = pickUntilMinutes(problemSolvingSource, split.problemSolving, exposed);
   const rolePool = approved.filter((item) => item.module === "ROLE" && item.trackId === track.id);
   const uploaded = rolePool
     .filter((item) => item.bank === "UPLOAD")
     .sort((a, b) => a.sourceId.localeCompare(b.sourceId));
   const roleSource = uploaded.length > 0 ? uploaded : byDifficulty(rolePool, track.level);
-  const role = pickUntilMinutes(roleSource, 30, exposed);
-  return { aptitude, problemSolving, role };
+  const role = pickUntilMinutes(roleSource, split.role, exposed);
+  return {
+    duration: split.duration,
+    aptitudeMin: split.aptitude,
+    problemSolvingMin: split.problemSolving,
+    roleMin: split.role,
+    aptitude,
+    problemSolving,
+    role,
+  };
 }
 
 export function trackRoleLabel(track: { roleName: string; level: string }) {
@@ -216,23 +248,19 @@ export async function assembleTrackPaper(prisma: PrismaClient, trackCode: string
   const selected = [...aptitude, ...problemSolving, ...role];
   const roleLabel = trackRoleLabel(track);
   const roleVersion = await ensureRoleVersionForTrack(prisma, track);
+  const durationMin = paperMinuteSplit(track.durationMin).duration;
 
   let assessment = await prisma.assessment.findFirst({
-    where: { roleVersionId: roleVersion.id, name: roleLabel },
+    where: { roleVersionId: roleVersion.id, name: roleLabel, durationMin },
   });
   if (!assessment) {
     assessment = await prisma.assessment.create({
       data: {
         roleVersionId: roleVersion.id,
         name: roleLabel,
-        durationMin: TEST_DURATION_MIN,
+        durationMin,
         status: "PUBLISHED",
       },
-    });
-  } else if (assessment.durationMin !== TEST_DURATION_MIN) {
-    assessment = await prisma.assessment.update({
-      where: { id: assessment.id },
-      data: { durationMin: TEST_DURATION_MIN },
     });
   }
   const latest = await prisma.assessmentVersion.findFirst({

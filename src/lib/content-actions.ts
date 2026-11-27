@@ -123,7 +123,10 @@ export async function saveVersionCopy(formData: FormData) {
     where: { id: version.assessmentId },
     data: {
       name: title || undefined,
-      durationMin: Math.min(Number(formData.get("durationMin") || 60) || 60, 60),
+      durationMin: Math.min(
+        Math.max(Number(formData.get("durationMin") || 60) || 60, 10),
+        120,
+      ),
     },
   });
   await audit({
